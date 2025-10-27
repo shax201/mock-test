@@ -130,9 +130,8 @@ ielts-mock-test/
 
 1. **Port already in use:**
    ```bash
-   # Check what's using the port
-   lsof -i :3000
-   # Kill the process or change the port in docker-compose.yml
+   # If port 3000 is in use, stop the application and restart
+   # Or change the port in docker-compose.yml
    ```
 
 2. **Database connection issues:**
