@@ -12,30 +12,10 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Choose Dockerfile type
-DOCKERFILE_TYPE=${1:-"simple"}
-
-case $DOCKERFILE_TYPE in
-    "simple")
-        echo "📦 Using simple Dockerfile..."
-        DOCKERFILE="Dockerfile.simple"
-        TAG="ielts-mock-test:simple"
-        ;;
-    "dev")
-        echo "📦 Using development Dockerfile..."
-        DOCKERFILE="Dockerfile.dev"
-        TAG="ielts-mock-test:dev"
-        ;;
-    "production")
-        echo "📦 Using production Dockerfile..."
-        DOCKERFILE="Dockerfile"
-        TAG="ielts-mock-test:latest"
-        ;;
-    *)
-        echo "❌ Invalid Dockerfile type. Use: simple, dev, or production"
-        exit 1
-        ;;
-esac
+# Use the main Dockerfile for production builds
+echo "📦 Using production Dockerfile..."
+DOCKERFILE="Dockerfile"
+TAG="ielts-mock-test:latest"
 
 echo "🔍 Building with $DOCKERFILE..."
 
