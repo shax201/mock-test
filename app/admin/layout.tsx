@@ -141,11 +141,11 @@ export default function AdminLayout({
       await fetch('/api/auth/logout', { method: 'POST' })
       setUser(null)
       setIsProfileOpen(false)
-      router.push('/admin/login')
+      router.push('/login?type=admin')
     } catch (error) {
       console.error('Logout error:', error)
       // Still redirect to login even if logout API fails
-      router.push('/admin/login')
+      router.push('/login?type=admin')
     }
   }
 

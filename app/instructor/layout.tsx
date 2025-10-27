@@ -15,7 +15,7 @@ export default function InstructorLayout({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/instructor/login')
+      router.push('/login?type=instructor')
     } catch (error) {
       console.error('Logout error:', error)
     }

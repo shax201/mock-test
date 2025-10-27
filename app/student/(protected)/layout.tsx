@@ -31,10 +31,10 @@ export default function StudentProtectedLayout({
           const data = await response.json()
           setStudent(data.student)
         } else {
-          router.push('/student/login')
+          router.push('/login?type=student')
         }
       } catch (error) {
-        router.push('/student/login')
+        router.push('/login?type=student')
       } finally {
         setLoading(false)
       }
@@ -91,11 +91,11 @@ export default function StudentProtectedLayout({
       await fetch('/api/student/auth/logout', { method: 'POST' })
       setStudent(null)
       setIsProfileOpen(false)
-      router.push('/student/login')
+      router.push('/login?type=student')
     } catch (error) {
       console.error('Error during logout:', error)
       // Still redirect to login even if logout API fails
-      router.push('/student/login')
+      router.push('/login?type=student')
     }
   }
 
