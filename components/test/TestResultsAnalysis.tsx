@@ -533,7 +533,7 @@ export default function TestResultsAnalysis({ testId }: TestResultsAnalysisProps
                                 if (response.ok) {
                                   const data = await response.json()
                                   // Navigate to the existing test system using the generated token
-                                  window.location.href = `/test/${data.token}`
+                                  window.location.href = `/test/${data.token}/reading`
                                 } else {
                                   const errorData = await response.json()
                                   alert('Failed to start remedial test. Please try again.')

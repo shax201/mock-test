@@ -361,6 +361,8 @@ export default function ReadingPage({ params }: { params: Promise<{ token: strin
     )
   }
 
+
+  console.log("getQuestionsForPart",getQuestionsForPart(1));
   return (
     <FullscreenGuard>
       <div className="min-h-screen bg-gray-50">

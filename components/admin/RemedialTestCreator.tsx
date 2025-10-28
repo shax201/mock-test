@@ -8,6 +8,8 @@ interface PassageSection {
   id: string
   number: number
   content: string
+  hasHeading?: boolean
+  heading?: string
 }
 
 interface QuestionData {
@@ -122,11 +124,13 @@ export default function RemedialTestCreator() {
     }))
   }
 
-  const addPassageSection = () => {
+  const addPassageSection = (hasHeading: boolean = false) => {
     const newSection: PassageSection = {
       id: `section-${currentQuestion.passage?.sections.length || 0 + 1}`,
       number: (currentQuestion.passage?.sections.length || 0) + 1,
-      content: ''
+      content: '',
+      hasHeading,
+      heading: hasHeading ? '' : undefined
     }
     
     setCurrentQuestion(prev => ({
@@ -420,13 +424,22 @@ export default function RemedialTestCreator() {
               <label className="block text-sm font-medium text-gray-700">
                 Reading Passage
               </label>
-              <button
-                type="button"
-                onClick={addPassageSection}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                + Add Section
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => addPassageSection(false)}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  + Add Gap Section
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addPassageSection(true)}
+                  className="text-sm text-green-600 hover:text-green-700"
+                >
+                  + Add Section with Heading
+                </button>
+              </div>
             </div>
             
             <div className="mb-4">
@@ -446,9 +459,18 @@ export default function RemedialTestCreator() {
               {currentQuestion.passage?.sections.map((section, index) => (
                 <div key={section.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      Section {section.number}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Section {section.number}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        section.hasHeading 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {section.hasHeading ? 'With Heading' : 'Gap Section'}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => removePassageSection(section.id)}
@@ -457,13 +479,34 @@ export default function RemedialTestCreator() {
                       Remove
                     </button>
                   </div>
-                  <textarea
-                    value={section.content}
-                    onChange={(e) => updatePassageSection(section.id, 'content', e.target.value)}
-                    rows={4}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter section content"
-                  />
+                  
+                  {section.hasHeading && (
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Section Heading
+                      </label>
+                      <input
+                        type="text"
+                        value={section.heading || ''}
+                        onChange={(e) => updatePassageSection(section.id, 'heading', e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter section heading"
+                      />
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Section Content
+                    </label>
+                    <textarea
+                      value={section.content}
+                      onChange={(e) => updatePassageSection(section.id, 'content', e.target.value)}
+                      rows={4}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter section content"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
