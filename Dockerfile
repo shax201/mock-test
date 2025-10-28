@@ -1,10 +1,14 @@
 # Use the official Node.js 18 image as the base image
-FROM node:18-alpine AS base
+FROM node:18 AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat openssl openssl-dev
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libc6-dev \
+    openssl \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy package files first
@@ -27,13 +31,22 @@ COPY . .
 
 # Set environment variables for build
 ENV NODE_ENV=production
-ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy"
-ENV RESEND_API_KEY="dummy-key-for-build"
-ENV JWT_SECRET="dummy-jwt-secret-for-build"
-ENV NEXTAUTH_SECRET="dummy-nextauth-secret-for-build"
-ENV CLOUDINARY_CLOUD_NAME="dummy"
-ENV CLOUDINARY_API_KEY="dummy"
-ENV CLOUDINARY_API_SECRET="dummy"
+ENV DATABASE_URL="postgresql://neondb_owner:npg_s0i7MxjcIhCd@ep-late-dust-a17jlpvf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+ENV SMTP_HOST="smtp.gmail.com"
+ENV SMTP_PORT="587"
+ENV SMTP_SECURE="false"
+ENV SMTP_USER="devloperabuhuraira@gmail.com"
+ENV SMTP_PASS="uwosiveywevwrfdl"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV CLOUDINARY_CLOUD_NAME="dz0azrpke"
+ENV CLOUDINARY_API_KEY="461621934977911"
+ENV CLOUDINARY_API_SECRET="Yb_OCqvfW-CRwFUecDcT5qREsl0"
+ENV RESEND_API_KEY="re_ACPKBocu_JwYQ8M3FNAFGPVrupbHSFpZb"
+ENV JWT_SECRET="your-super-secret-jwt-key-here-change-in-production"
+ENV NEXTAUTH_SECRET="your-nextauth-secret-change-in-production"
+ENV NODE_ENV=production
+ENV EMAIL_FROM="onboarding@resend.dev"
+ENV RESEND_BASE_URL="https://api.resend.com" 
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl"
 
 # Generate Prisma client
@@ -51,7 +64,11 @@ ENV NODE_ENV production
 # ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install curl for health checks and OpenSSL for Prisma
-RUN apk add --no-cache curl openssl openssl-dev
+RUN apt-get update && apt-get install -y \
+    curl \
+    openssl \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

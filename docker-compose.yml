@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: ielts_user
       POSTGRES_PASSWORD: ielts_password
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -46,16 +46,20 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://ielts_user:ielts_password@postgres:5432/ielts_mock_test
-      - JWT_SECRET=your-super-secret-jwt-key-here-change-in-production
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=your-nextauth-secret-change-in-production
-      - CLOUDINARY_CLOUD_NAME=your-cloud-name
-      - CLOUDINARY_API_KEY=your-api-key
-      - CLOUDINARY_API_SECRET=your-api-secret
-      - RESEND_API_KEY=re_********************************
-      - EMAIL_FROM=IELTS Mock Test <noreply@yourdomain.com>
-      - RESEND_BASE_URL=https://api.resend.com
+      - DATABASE_URL="postgresql://neondb_owner:npg_s0i7MxjcIhCd@ep-late-dust-a17jlpvf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+      - SMTP_HOST="smtp.gmail.com"
+      - SMTP_PORT="587"
+      - SMTP_SECURE="false"
+      - SMTP_USER="devloperabuhuraira@gmail.com"
+      - SMTP_PASS="uwosiveywevwrfdl" #dummy smtp pass
+      - NEXTAUTH_URL="http://localhost:3000"
+      - CLOUDINARY_CLOUD_NAME="dz0azrpke" #dummy cloud name
+      - CLOUDINARY_API_KEY="461621934977911" #dummy api key
+      - CLOUDINARY_API_SECRET="Yb_OCqvfW-CRwFUecDcT5qREsl0" #dummy api secret
+      - RESEND_API_KEY="re_ACPKBocu_JwYQ8M3FNAFGPVrupbHSFpZb" #dummy resend api key
+      - NODE_ENV="development" #dummy node environment
+      - EMAIL_FROM="onboarding@resend.dev" #dummy email from
+      - RESEND_BASE_URL="https://api.resend.com" #dummy resend base url
     depends_on:
       postgres:
         condition: service_healthy

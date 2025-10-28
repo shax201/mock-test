@@ -3,12 +3,12 @@
 
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl"]
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://neondb_owner:npg_s0i7MxjcIhCd@ep-late-dust-a17jlpvf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 }
 
 enum UserRole {

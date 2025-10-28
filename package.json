@@ -17,7 +17,7 @@
     "mock:comprehensive": "tsx scripts/create-comprehensive-mock-test.ts",
     "mock:verify": "tsx scripts/verify-part-storage.ts",
     "remedial:seed": "tsx scripts/seed-remedial-tests.ts",
-    "setup:complete": "tsx scripts/setup-complete-system.ts",
+    "setup:complete": "tsx scripts/setup-complete-system.ts"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^41.4.2",
