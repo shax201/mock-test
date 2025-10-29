@@ -1,202 +1,89 @@
-# IELTS Mock Test System - Scripts
+# Scripts Directory
 
-This directory contains various scripts to set up and manage the IELTS Mock Test System.
+This directory contains utility scripts for database seeding and maintenance.
 
-## 🚀 Quick Start
-
-### Complete System Setup
-```bash
-npm run setup:complete
-```
-This will:
-- Clear all existing data
-- Create a comprehensive mock test with all question types
-- Create 5 remedial test templates linked to the mock test
-- Set up admin user
-
-## 📝 Individual Scripts
-
-### Mock Test Scripts
-
-#### Create Comprehensive Mock Test
-```bash
-npm run mock:comprehensive
-```
-Creates a complete IELTS Academic mock test with:
-- Listening module (6 questions)
-- Reading module (8 questions) 
-- Writing module (manual tasks)
-- All question types: Multiple Choice, Fill-in-Blank, True/False/Not Given, Notes Completion, Summary Completion
-
-#### Reset and Seed Mock Tests
-```bash
-npm run mock:reset
-```
-Clears all data and creates sample mock tests.
-
-### Remedial Test Scripts
-
-#### Seed Remedial Tests
-```bash
-npm run remedial:seed
-```
-Creates 5 remedial test templates:
-- **Reading - Matching Headings Practice** (Intermediate)
-- **Reading - Information Matching Practice** (Intermediate)
-- **Listening - Multiple Choice Practice** (Intermediate)
-- **Reading - Fill in the Blank Practice** (Intermediate)
-- **Reading - True/False/Not Given Practice** (Advanced)
-
-### Database Scripts
-
-#### Database Migration
-```bash
-npm run db:migrate
-```
-Applies database schema changes.
-
-#### Seed Students
-```bash
-npm run db:seed:students
-```
-Creates sample student accounts.
-
-#### Reset Database
-```bash
-npm run db:reset
-```
-⚠️ **WARNING**: This will delete ALL data and reset the database.
-
-## 📊 Script Details
-
-### `create-comprehensive-mock-test.ts`
-- Creates a full IELTS Academic mock test
-- Includes all question types and modules
-- Generates realistic content for practice
+## Remedial Test Seeding
 
 ### `seed-remedial-tests.ts`
-- Creates remedial test templates linked to mock tests
-- Covers different question types and difficulty levels
-- Links to the comprehensive mock test created above
 
-### `setup-complete-system.ts`
-- **Recommended for first-time setup**
-- Combines mock test creation and remedial test seeding
-- Provides complete system initialization
+Seeds the database with sample remedial test templates for both Multiple Choice and True/False question types in the LISTENING module.
 
-## 🔧 Prerequisites
+#### Features
 
-Before running any scripts:
+- Creates 6 sample remedial test templates
+- Supports both MULTIPLE_CHOICE and TRUE_FALSE question types
+- Includes per-question audio uploads (simulated with Cloudinary demo URLs)
+- Links to existing mock tests when available
+- Creates an admin user if none exists
+- Provides detailed logging and summary statistics
 
-1. **Database Setup**:
-   ```bash
-   npm run db:migrate
-   ```
+#### Sample Data Includes
 
-2. **Environment Variables**:
-   Ensure your `.env` file has the correct database connection string.
+1. **Listening Comprehension - Multiple Choice** (Intermediate, 15 min)
+   - 3 questions with audio content
+   - Multiple choice options
 
-3. **Dependencies**:
-   ```bash
-   npm install
-   ```
+2. **Listening Comprehension - True/False** (Beginner, 10 min)
+   - 3 true/false questions with audio
 
-## 📋 Script Output
+3. **Advanced Listening - Multiple Choice** (Advanced, 25 min)
+   - 4 challenging questions with complex audio
 
-### Mock Test Creation
-- Mock Test ID and details
-- Module information with question counts
-- Admin user creation
+4. **Basic Listening - True/False** (Beginner, 8 min)
+   - 2 simple true/false questions
 
-### Remedial Test Seeding
-- Template creation confirmation
-- Link to parent mock test
-- Admin user information
+5. **Intermediate Listening - True/False** (Intermediate, 12 min)
+   - 3 moderate difficulty questions
 
-### Complete Setup
-- Summary of all created content
-- Access URLs for admin and student portals
-- Default credentials
+#### Usage
 
-## 🎯 Usage Examples
-
-### First Time Setup
 ```bash
-# 1. Install dependencies
-npm install
+# Run the seeding script
+npx tsx scripts/seed-remedial-tests.ts
 
-# 2. Set up database
-npm run db:migrate
-
-# 3. Create complete system
-npm run setup:complete
-
-# 4. Start development server
-npm run dev
+# Or make it executable and run directly
+chmod +x scripts/seed-remedial-tests.ts
+./scripts/seed-remedial-tests.ts
 ```
 
-### Adding More Remedial Tests
-```bash
-# After creating mock tests
-npm run remedial:seed
-```
+#### Prerequisites
 
-### Reset Everything
-```bash
-# Clear all data and start fresh
-npm run db:reset
-npm run setup:complete
-```
+- Database connection configured in `.env`
+- Prisma client installed
+- Admin user will be created if none exists (email: admin@example.com, password: admin123)
 
-## 🔍 Troubleshooting
+#### Output
 
-### Common Issues
+The script provides detailed logging including:
+- Creation progress for each test
+- Summary statistics
+- Error handling with clear messages
 
-1. **Database Connection Error**:
-   - Check your `.env` file
-   - Ensure database is running
-   - Run `npm run db:migrate`
+#### Database Schema
 
-2. **Permission Errors**:
-   - Ensure you have write access to the database
-   - Check file permissions
+The script creates records in the `remedial_test_templates` table with the following structure:
 
-3. **Script Fails**:
-   - Check console output for specific errors
-   - Ensure all dependencies are installed
-   - Try running individual scripts to isolate issues
+- `title`: Test title
+- `description`: Test description
+- `type`: Question type (MULTIPLE_CHOICE, TRUE_FALSE)
+- `module`: Module type (LISTENING)
+- `difficulty`: Difficulty level (BEGINNER, INTERMEDIATE, ADVANCED)
+- `duration`: Test duration in minutes
+- `questions`: JSON array of question data including:
+  - Question text (or "Audio Question" placeholder)
+  - Per-question audio URLs and public IDs
+  - Answer options (for multiple choice)
+  - Correct answers
+  - Instructions
+- `audioUrl`: Main audio file URL
+- `audioPublicId`: Cloudinary public ID for main audio
+- `mockTestId`: Optional link to existing mock test
+- `isActive`: Whether the test is active
+- `createdBy`: ID of the admin user who created it
 
-### Getting Help
+#### Notes
 
-- Check the console output for detailed error messages
-- Ensure all prerequisites are met
-- Verify database connectivity
-- Check file permissions and dependencies
-
-## 📁 File Structure
-
-```
-scripts/
-├── README.md                           # This file
-├── create-comprehensive-mock-test.ts   # Mock test creation
-├── seed-remedial-tests.ts             # Remedial test seeding
-├── setup-complete-system.ts           # Complete system setup
-├── seed-students.ts                   # Student account creation
-├── reset-and-seed-mock-tests.ts       # Reset and seed
-└── verify-part-storage.ts             # Verification script
-```
-
-## 🎉 Success Indicators
-
-After running `npm run setup:complete`, you should see:
-
-- ✅ Mock test created with ID
-- ✅ 5 remedial test templates created
-- ✅ Admin user created
-- ✅ All modules and questions generated
-- ✅ System ready for use
-
-You can then access:
-- **Admin Panel**: `/admin` (admin@radiance.edu / admin123)
-- **Student Portal**: `/student`
-- **Remedial Tests**: `/admin/remedial-tests` and `/student/remedial-tests`
+- Audio URLs use Cloudinary demo URLs for demonstration purposes
+- In production, replace with actual uploaded audio files
+- The script is idempotent - running it multiple times will create duplicate entries
+- Admin user creation is safe - it won't overwrite existing admin users

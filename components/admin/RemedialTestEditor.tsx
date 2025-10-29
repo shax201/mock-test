@@ -1,59 +1,48 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { getMockTests } from '@/lib/actions/mock-tests'
 import BasicInfoForm from './remedial/BasicInfoForm'
-import PassageEditor from './remedial/PassageEditor'
-import HeadingsEditor from './remedial/HeadingsEditor'
-import QuestionsListEditor from './remedial/QuestionsListEditor'
-import OptionsEditor from './remedial/OptionsEditor'
-import CorrectAnswerInput from './remedial/CorrectAnswerInput'
 import ReviewSummary from './remedial/ReviewSummary'
-import QuestionAudioListEditor from './remedial/QuestionAudioListEditor'
-import { PassageSection, QuestionData, RemedialTestData, MockTest } from './remedial/types'
 import QuestionCreationModal from './QuestionCreationModal'
+import { PassageSection, QuestionData, RemedialTestData, MockTest } from './remedial/types'
 
 // Types moved to components/admin/remedial/types
 
-export default function RemedialTestCreator() {
+export default function RemedialTestEditor() {
   const router = useRouter()
+  const params = useParams()
+  const testId = params.id as string
+  
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [mockTests, setMockTests] = useState<MockTest[]>([])
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [testData, setTestData] = useState<RemedialTestData>({
     title: '',
     description: '',
-    type: 'MATCHING_HEADINGS',
-    module: 'READING',
+    type: 'MULTIPLE_CHOICE',
+    module: 'LISTENING',
     difficulty: 'INTERMEDIATE',
     duration: 20,
     audioUrl: '',
     audioPublicId: '',
     mockTestId: '',
-    questions: []
+    questions: [],
+    isActive: true
   })
 
-  const [currentQuestion, setCurrentQuestion] = useState<QuestionData>({
-    id: 'q1',
-    passage: {
-      title: '',
-      sections: []
-    },
-    headings: [],
-    questions: [],
-    options: [],
-    questionAudios: [],
-    correctAnswers: {},
-    correctAnswer: '',
-    instructions: ''
-  })
+  // Removed currentQuestion state - using modal approach
 
   useEffect(() => {
     fetchMockTests()
-  }, [])
+    if (testId) {
+      fetchRemedialTest()
+    }
+  }, [testId])
 
   const fetchMockTests = async () => {
     try {
@@ -71,7 +60,43 @@ export default function RemedialTestCreator() {
     }
   }
 
-  // Option lists moved inside child components where needed
+  const fetchRemedialTest = async () => {
+    try {
+      setInitialLoading(true)
+      const response = await fetch(`/api/admin/remedial-tests/${testId}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        const test = data.remedialTest
+        
+        setTestData({
+          title: test.title || '',
+          description: test.description || '',
+          type: test.type || 'MULTIPLE_CHOICE',
+          module: test.module || 'LISTENING',
+          difficulty: test.difficulty || 'INTERMEDIATE',
+          duration: test.duration || 20,
+          audioUrl: test.audioUrl || '',
+          audioPublicId: test.audioPublicId || '',
+          mockTestId: test.mockTestId || '',
+          questions: test.questions || [],
+          isActive: test.isActive !== undefined ? test.isActive : true
+        })
+      } else {
+        console.error('Failed to fetch remedial test')
+        alert('Failed to load remedial test data')
+        router.push('/admin/remedial-tests')
+      }
+    } catch (error) {
+      console.error('Error fetching remedial test:', error)
+      alert('Error loading remedial test data')
+      router.push('/admin/remedial-tests')
+    } finally {
+      setInitialLoading(false)
+    }
+  }
+
+  // Option lists moved to BasicInfoForm component
 
   const handleBasicInfoChange = (field: string, value: string | number) => {
     setTestData(prev => {
@@ -118,82 +143,6 @@ export default function RemedialTestCreator() {
     }
   }
 
-  const handleQuestionChange = (field: string, value: any) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
-
-  const addPassageSection = (hasHeading: boolean = false) => {
-    const newSection: PassageSection = {
-      id: `section-${currentQuestion.passage?.sections.length || 0 + 1}`,
-      number: (currentQuestion.passage?.sections.length || 0) + 1,
-      content: '',
-      hasHeading,
-      heading: hasHeading ? '' : undefined
-    }
-    
-    setCurrentQuestion(prev => ({
-      ...prev,
-      passage: {
-        ...prev.passage!,
-        sections: [...(prev.passage?.sections || []), newSection]
-      }
-    }))
-  }
-
-  const updatePassageSection = (sectionId: string, field: string, value: string) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      passage: {
-        ...prev.passage!,
-        sections: prev.passage?.sections.map(section => 
-          section.id === sectionId ? { ...section, [field]: value } : section
-        ) || []
-      }
-    }))
-  }
-
-  const removePassageSection = (sectionId: string) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      passage: {
-        ...prev.passage!,
-        sections: prev.passage?.sections.filter(section => section.id !== sectionId) || []
-      }
-    }))
-  }
-
-  const addHeading = () => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      headings: [...(prev.headings || []), '']
-    }))
-  }
-
-  const updateHeading = (index: number, value: string) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      headings: prev.headings?.map((heading, i) => i === index ? value : heading) || []
-    }))
-  }
-
-  const removeHeading = (index: number) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      headings: prev.headings?.filter((_, i) => i !== index) || []
-    }))
-  }
-
-  const addQuestion = () => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      questions: [...(prev.questions || []), ''],
-      questionAudios: [...(prev.questionAudios || []), { url: '' }]
-    }))
-  }
-
   const handleModalSave = (modalData: any) => {
     const contentFromModal: string = (modalData?.content || '').trim()
     const content: string = contentFromModal || (modalData?.questionAudio ? 'Audio Question' : '')
@@ -234,61 +183,7 @@ export default function RemedialTestCreator() {
       }
       return { ...prev, questions: updated }
     })
-
-    // Reset the working question state
-    setCurrentQuestion({
-      id: `q${testData.questions.length + 2}`,
-      passage: {
-        title: '',
-        sections: []
-      },
-      headings: [],
-      questions: [],
-      options: [],
-      questionAudios: [],
-      correctAnswers: {},
-      correctAnswer: '',
-      instructions: ''
-    })
     setEditingIndex(null)
-  }
-
-  const updateQuestion = (index: number, value: string) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      questions: prev.questions?.map((question, i) => i === index ? value : question) || []
-    }))
-  }
-
-  const removeQuestion = (index: number) => {
-    setCurrentQuestion(prev => ({
-      ...prev,
-      questions: prev.questions?.filter((_, i) => i !== index) || [],
-      questionAudios: prev.questionAudios?.filter((_, i) => i !== index) || []
-    }))
-  }
-
-  const addQuestionToTest = () => {
-    setTestData(prev => ({
-      ...prev,
-      questions: [...prev.questions, { ...currentQuestion }]
-    }))
-    
-    // Reset current question
-    setCurrentQuestion({
-      id: `q${testData.questions.length + 2}`,
-      passage: {
-        title: '',
-        sections: []
-      },
-      headings: [],
-      questions: [],
-      options: [],
-      questionAudios: [],
-      correctAnswers: {},
-      correctAnswer: '',
-      instructions: ''
-    })
   }
 
   const handleSubmit = async () => {
@@ -310,10 +205,10 @@ export default function RemedialTestCreator() {
 
     setLoading(true)
     try {
-      console.log('Submitting test data:', testData)
+      console.log('Updating test data:', testData)
       
-      const response = await fetch('/api/admin/remedial-tests', {
-        method: 'POST',
+      const response = await fetch(`/api/admin/remedial-tests/${testId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -322,16 +217,16 @@ export default function RemedialTestCreator() {
 
       if (response.ok) {
         const result = await response.json()
-        console.log('Test created successfully:', result)
+        console.log('Test updated successfully:', result)
         router.push('/admin/remedial-tests')
       } else {
         const errorData = await response.json()
-        console.error('Failed to create remedial test:', errorData)
-        alert(`Failed to create remedial test: ${errorData.error || 'Unknown error'}`)
+        console.error('Failed to update remedial test:', errorData)
+        alert(`Failed to update remedial test: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Error creating remedial test:', error)
-      alert('Error creating remedial test. Please try again.')
+      console.error('Error updating remedial test:', error)
+      alert('Error updating remedial test. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -352,15 +247,15 @@ export default function RemedialTestCreator() {
         <h3 className="text-lg font-medium text-gray-900 mb-4">Question Content</h3>
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">Create questions using the modal.</div>
-                <button
-                  type="button"
+          <button
+            type="button"
             onClick={() => setIsQuestionModalOpen(true)}
             className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             + Create via Modal
-                    </button>
-                  </div>
-                  
+          </button>
+        </div>
+
         {/* Show created questions */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
@@ -379,31 +274,36 @@ export default function RemedialTestCreator() {
                       <div className="flex items-center space-x-2">
                         <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
                           {testData.type === 'MULTIPLE_CHOICE' ? 'Multiple Choice' : testData.type === 'TRUE_FALSE' ? 'True/False' : testData.type}
-                  </span>
+                        </span>
                         {q.questionAudios && q.questionAudios[idx] && q.questionAudios[idx].url ? (
                           <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Audio attached</span>
                         ) : null}
-                  <button
-                    type="button"
+                        <button
+                          type="button"
                           className="text-xs text-blue-600 hover:text-blue-800"
-                          onClick={() => { setEditingIndex(qi); setIsQuestionModalOpen(true) }}
-                  >
+                          onClick={() => { 
+                            console.log('Editing question:', q);
+                            console.log('Question audios:', q.questionAudios);
+                            setEditingIndex(qi); 
+                            setIsQuestionModalOpen(true) 
+                          }}
+                        >
                           Edit
-                  </button>
-              <button
-                type="button"
+                        </button>
+                        <button
+                          type="button"
                           className="text-xs text-red-600 hover:text-red-800"
                           onClick={() => setTestData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== qi) }))}
                         >
                           Delete
-                  </button>
-                </div>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               ))}
-              </div>
-            )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -411,12 +311,20 @@ export default function RemedialTestCreator() {
 
   const renderStep3 = () => (<ReviewSummary testData={testData} mockTests={mockTests} />)
 
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Create Remedial Test</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Edit Remedial Test</h1>
         <p className="mt-2 text-gray-600">
-          Create personalized remedial tests to help students improve their weak areas.
+          Update the remedial test details and questions.
         </p>
       </div>
 
@@ -435,7 +343,7 @@ export default function RemedialTestCreator() {
               <div className="ml-2 text-sm font-medium text-gray-700">
                 {step === 1 && 'Basic Info'}
                 {step === 2 && 'Question Content'}
-                {step === 3 && 'Review & Create'}
+                {step === 3 && 'Review & Update'}
               </div>
               {step < 3 && (
                 <div className="w-8 h-0.5 bg-gray-200 mx-4" />
@@ -475,7 +383,7 @@ export default function RemedialTestCreator() {
                 disabled={loading || !testData.title || !testData.type || !testData.module || testData.questions.length === 0}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating...' : 'Create Test'}
+                {loading ? 'Updating...' : 'Update Test'}
               </button>
             )}
           </div>
@@ -491,9 +399,9 @@ export default function RemedialTestCreator() {
       initial={editingIndex !== null ? {
         type: testData.type,
         content: (testData.questions[editingIndex]?.questions || [''])[0] || '',
-        audioUrl: (testData.questions[editingIndex]?.questionAudios || [{ url: '' }])[0]?.url || '',
-        audioPublicId: (testData.questions[editingIndex]?.questionAudios || [{ publicId: '' }])[0]?.publicId || '',
-        correctAnswer: testData.questions[editingIndex]?.correctAnswers ? testData.questions[editingIndex]?.correctAnswers['0'] : ''
+        audioUrl: testData.questions[editingIndex]?.questionAudios?.[0]?.url || '',
+        audioPublicId: testData.questions[editingIndex]?.questionAudios?.[0]?.publicId || '',
+        correctAnswer: testData.questions[editingIndex]?.correctAnswers?.['0'] || ''
       } : undefined}
     />
     </div>

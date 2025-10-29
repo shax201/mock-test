@@ -12,6 +12,8 @@ interface RemedialTest {
   module: string
   difficulty: string
   duration: number
+  audioUrl?: string
+  audioPublicId?: string
   isActive: boolean
   createdAt: string
   mockTest?: {
@@ -57,6 +59,25 @@ export default function AdminRemedialTests() {
 
     setDeletingId(id)
     try {
+      // Find the test to get audioPublicId
+      const testToDelete = remedialTests.find(test => test.id === id)
+      
+      // Delete audio file if it exists
+      if (testToDelete?.audioPublicId) {
+        try {
+          await fetch('/api/admin/delete-audio', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ public_id: testToDelete.audioPublicId }),
+          })
+        } catch (error) {
+          console.error('Error deleting audio file:', error)
+          // Continue with test deletion even if audio deletion fails
+        }
+      }
+
       const response = await fetch(`/api/admin/remedial-tests/${id}`, {
         method: 'DELETE'
       })
@@ -113,7 +134,9 @@ export default function AdminRemedialTests() {
       'MATCHING_HEADINGS': 'Matching Headings',
       'INFORMATION_MATCHING': 'Information Matching',
       'MULTIPLE_CHOICE': 'Multiple Choice',
-      'NOTES_COMPLETION': 'Notes Completion'
+      'NOTES_COMPLETION': 'Notes Completion',
+      'FILL_IN_THE_BLANK': 'Fill in the Blank',
+      'TRUE_FALSE_NOT_GIVEN': 'True/False/Not Given'
     }
     return types[type] || type
   }
@@ -329,6 +352,11 @@ export default function AdminRemedialTests() {
                         <span className="text-sm text-gray-500">
                           <strong>Sessions:</strong> {test._count.sessions}
                         </span>
+                        {test.module === 'LISTENING' && test.audioUrl && (
+                          <span className="text-sm text-green-600">
+                            <strong>Audio:</strong> <a href={test.audioUrl} target="_blank" rel="noopener noreferrer" className="underline">Listen</a>
+                          </span>
+                        )}
                         {test.mockTest && (
                           <span className="text-sm text-blue-600">
                             <strong>Linked to:</strong> {test.mockTest.title}

@@ -9,6 +9,7 @@ function mapQuestionType(remedialType: string): string {
     'INFORMATION_MATCHING': 'MATCHING',
     'MULTIPLE_CHOICE': 'MULTIPLE_CHOICE',
     'TRUE_FALSE_NOT_GIVEN': 'TRUE_FALSE_NOT_GIVEN',
+    'TRUE_FALSE': 'TRUE_FALSE',
     'FIB': 'FIB',
     'NOTES_COMPLETION': 'NOTES_COMPLETION',
     'SUMMARY_COMPLETION': 'SUMMARY_COMPLETION'
@@ -71,6 +72,21 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Transform remedial test questions to the format expected by the frontend
+    const transformedQuestions = Array.isArray(remedialTest.questions) 
+      ? remedialTest.questions.map((q: any, index: number) => ({
+          id: q.id || `q${index + 1}`,
+          type: mapQuestionType(remedialTest.type),
+          content: q.questions?.[0] || q.content || 'Question',
+          options: q.options || [],
+          correctAnswer: q.correctAnswer || q.correctAnswers?.["0"] || '',
+          points: 1,
+          part: 1,
+          instructions: q.instructions || '',
+          questionAudios: q.questionAudios || []
+        }))
+      : []
+
     // Create a mock test structure for the remedial test
     // This allows us to reuse the existing test infrastructure
     const mockTest = await prisma.mock.create({
@@ -84,27 +100,60 @@ export async function POST(request: NextRequest) {
               type: remedialTest.module as any,
               durationMinutes: remedialTest.duration,
               instructions: `Complete this ${remedialTest.type.replace(/_/g, ' ').toLowerCase()} practice test.`,
-              passageContent: remedialTest.questions as any,
+              audioUrl: remedialTest.audioUrl,
               order: 1,
               questions: {
-                create: [
-                  {
-                    order: 1,
-                    correctAnswerJson: (remedialTest.questions as any)?.correctAnswers || {},
-                    questionBank: {
-                      create: {
-                        type: mapQuestionType(remedialTest.type) as any,
-                        contentJson: remedialTest.questions as any
+                create: transformedQuestions.map((q, index) => ({
+                  order: index + 1,
+                  correctAnswerJson: q.correctAnswer,
+                  questionBank: {
+                    create: {
+                      type: q.type as any,
+                      contentJson: {
+                        content: q.content,
+                        options: q.options,
+                        instructions: q.instructions,
+                        questionAudios: q.questionAudios,
+                        correctAnswers: { "0": q.correctAnswer }
                       }
                     }
                   }
-                ]
+                }))
               }
             }
           ]
         }
       }
     })
+
+    // Create listening module data if this is a listening test
+    if (remedialTest.module === 'LISTENING' && remedialTest.audioUrl) {
+      // Fetch the created mock test with modules to get the module ID
+      const mockTestWithModules = await prisma.mock.findUnique({
+        where: { id: mockTest.id },
+        include: { modules: true }
+      })
+      
+      if (mockTestWithModules) {
+        const listeningModule = mockTestWithModules.modules.find(m => m.type === 'LISTENING')
+        if (listeningModule) {
+          await prisma.listeningModuleData.create({
+            data: {
+              moduleId: listeningModule.id,
+              audioUrl: remedialTest.audioUrl,
+              audioPublicId: remedialTest.audioPublicId,
+              audioDuration: 300, // Default 5 minutes, can be updated later
+              part1Content: 'Listen to the audio and answer the questions.',
+              part2Content: 'Continue listening to the audio.',
+              part3Content: 'Complete the listening test.',
+              part1Instructions: 'Listen carefully and choose the best answer.',
+              part2Instructions: 'Pay attention to details in the audio.',
+              part3Instructions: 'Focus on the main ideas and supporting details.'
+            }
+          })
+        }
+      }
+    }
 
     // Create an assignment for the student
     const assignment = await prisma.assignment.create({

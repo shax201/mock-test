@@ -332,6 +332,8 @@ model RemedialTestTemplate {
   difficulty  String   @default("INTERMEDIATE") // BEGINNER, INTERMEDIATE, ADVANCED
   duration    Int      @default(20) // in minutes
   questions   Json     // Question data
+  audioUrl    String?  @map("audio_url") // Audio file URL for LISTENING module
+  audioPublicId String? @map("audio_public_id") // Cloudinary public ID for audio file
   mockTestId  String?  @map("mock_test_id") // Link to specific mock test
   isActive    Boolean  @default(true)
   createdBy   String   @map("created_by")

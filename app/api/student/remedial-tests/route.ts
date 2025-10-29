@@ -65,6 +65,60 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Check which remedial tests the student has already attempted
+    const studentAssignments = await prisma.assignment.findMany({
+      where: {
+        studentId: decoded.userId,
+        mock: {
+          title: {
+            startsWith: 'Remedial Test:'
+          }
+        }
+      },
+      include: {
+        submissions: {
+          where: {
+            submittedAt: {
+              not: null
+            }
+          }
+        },
+        mock: true
+      }
+    })
+
+    // Also check RemedialTestSession for completed tests
+    const completedSessions = await prisma.remedialTestSession.findMany({
+      where: {
+        studentId: decoded.userId,
+        completedAt: {
+          not: null
+        }
+      },
+      include: {
+        template: true
+      }
+    })
+
+    // Create a map of attempted remedial tests
+    const attemptedTests = new Set()
+    
+    // Add from assignments
+    studentAssignments.forEach(assignment => {
+      if (assignment.submissions.length > 0) {
+        // Extract remedial test title from the mock title
+        const remedialTestTitle = assignment.mock.title.replace('Remedial Test: ', '')
+        attemptedTests.add(remedialTestTitle)
+      }
+    })
+
+    // Add from completed sessions
+    completedSessions.forEach(session => {
+      if (session.template) {
+        attemptedTests.add(session.template.title)
+      }
+    })
+
     // Convert templates to the format expected by the frontend
     const remedialTests = remedialTestTemplates.map(template => ({
       id: template.id,
@@ -75,7 +129,8 @@ export async function GET(request: NextRequest) {
       difficulty: template.difficulty,
       duration: template.duration,
       questions: template.questions,
-      mockTest: template.mockTest
+      mockTest: template.mockTest,
+      attempted: attemptedTests.has(template.title)
     }))
 
     return NextResponse.json({

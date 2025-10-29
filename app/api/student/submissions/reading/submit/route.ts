@@ -61,41 +61,61 @@ export async function POST(request: NextRequest) {
     })
 
     // Calculate score
-    const studentAnswers = Object.entries(answers).map(([questionId, answer]) => ({
-      questionId,
-      answer: answer as string
-    }))
+    let totalScore = 0
+    let totalQuestions = 0
 
-    const correctAnswers = readingModule.questions.map(q => {
-      // Map Prisma QuestionType to the supported types in auto-scorer
-      let mappedType: string = q.questionBank.type
-      switch (q.questionBank.type) {
-        case 'TRUE_FALSE_NOT_GIVEN':
-          mappedType = 'NOT_GIVEN' // Map to the closest equivalent
-          break
-        case 'MULTIPLE_CHOICE':
-          mappedType = 'MCQ' // Map to the closest equivalent
-          break
-        case 'NOTES_COMPLETION':
-        case 'SUMMARY_COMPLETION':
-          mappedType = 'FIB' // Map to the closest equivalent
-          break
-        default:
-          mappedType = q.questionBank.type
-          break
-      }
+    for (const question of readingModule.questions) {
+      const userAnswer = answers[question.id]
+      const content = question.questionBank.contentJson as any
       
-      return {
-        questionId: q.id,
-        answer: typeof q.correctAnswerJson === 'string' ? q.correctAnswerJson : 
-                Array.isArray(q.correctAnswerJson) ? q.correctAnswerJson.map(String) : 
-                String(q.correctAnswerJson || ''),
-        type: mappedType as 'MCQ' | 'FIB' | 'MATCHING' | 'TRUE_FALSE' | 'NOT_GIVEN'
-      }
-    })
+      // Handle matching headings questions
+      if (question.questionBank.type === 'MATCHING' && content?.passage && content?.headings) {
+        const correctAnswers = content.correctAnswers || {}
+        let questionScore = 0
+        let correctCount = 0
+        let totalCount = Object.keys(correctAnswers).length
 
-    const scoreResult = scoreReading(studentAnswers, correctAnswers)
-    const bandScore = calculateReadingBand(scoreResult.correctCount)
+        if (userAnswer && typeof userAnswer === 'object') {
+          for (const [sectionId, correctHeading] of Object.entries(correctAnswers)) {
+            if (userAnswer[sectionId] === correctHeading) {
+              correctCount++
+            }
+          }
+        }
+
+        questionScore = totalCount > 0 ? (correctCount / totalCount) * question.points : 0
+        totalScore += questionScore
+        totalQuestions += question.points
+
+        // optional: collect per-question details if you later add a table/JSON column
+      } else {
+        // Handle other question types
+        const studentAnswers = Object.entries(answers).filter(([qId]) => qId === question.id).map(([questionId, answer]) => ({
+          questionId,
+          answer: answer as string
+        }))
+
+        const correctAnswers = [{
+          questionId: question.id,
+          answer: typeof question.correctAnswerJson === 'string' ? question.correctAnswerJson : 
+                  Array.isArray(question.correctAnswerJson) ? question.correctAnswerJson.map(String) : 
+                  String(question.correctAnswerJson || ''),
+          type: question.questionBank.type === 'TRUE_FALSE_NOT_GIVEN' ? 'NOT_GIVEN' :
+                question.questionBank.type === 'MULTIPLE_CHOICE' ? 'MCQ' :
+                question.questionBank.type === 'NOTES_COMPLETION' || question.questionBank.type === 'SUMMARY_COMPLETION' ? 'FIB' :
+                question.questionBank.type as 'MCQ' | 'FIB' | 'MATCHING' | 'TRUE_FALSE' | 'NOT_GIVEN'
+        }]
+
+        const scoreResult = scoreReading(studentAnswers, correctAnswers)
+        const questionScore = scoreResult.correctCount > 0 ? question.points : 0
+        totalScore += questionScore
+        totalQuestions += question.points
+
+        // optional: collect per-question details if you later add a table/JSON column
+      }
+    }
+
+    const bandScore = totalQuestions > 0 ? calculateReadingBand(Math.round((totalScore / totalQuestions) * 40)) : 0
 
     let submission
     if (existingSubmission) {

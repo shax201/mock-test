@@ -4,6 +4,29 @@ import { scoreListening } from '@/lib/scoring/auto-scorer'
 import { calculateListeningBand } from '@/lib/scoring/band-calculator'
 import { calculateAndStoreResults } from '@/lib/scoring/result-calculator'
 
+// Calculate band score from percentage for remedial tests
+function calculateBandFromPercentage(percentage: number): number {
+  if (percentage >= 95) return 9.0
+  if (percentage >= 90) return 8.5
+  if (percentage >= 85) return 8.0
+  if (percentage >= 80) return 7.5
+  if (percentage >= 75) return 7.0
+  if (percentage >= 70) return 6.5
+  if (percentage >= 65) return 6.0
+  if (percentage >= 60) return 5.5
+  if (percentage >= 55) return 5.0
+  if (percentage >= 50) return 4.5
+  if (percentage >= 45) return 4.0
+  if (percentage >= 40) return 3.5
+  if (percentage >= 35) return 3.0
+  if (percentage >= 30) return 2.5
+  if (percentage >= 25) return 2.0
+  if (percentage >= 20) return 1.5
+  if (percentage >= 15) return 1.0
+  if (percentage >= 10) return 0.5
+  return 0.0
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -76,17 +99,55 @@ export async function POST(request: NextRequest) {
           break
       }
       
+      // Handle different answer formats for remedial tests vs regular tests
+      let correctAnswer = ''
+      const contentJson = q.questionBank.contentJson as any
+      
+      if (contentJson?.correctAnswers && typeof contentJson.correctAnswers === 'object') {
+        // For remedial tests with correctAnswers object (e.g., {"0": "Option A"})
+        const answerKeys = Object.keys(contentJson.correctAnswers)
+        if (answerKeys.length > 0) {
+          correctAnswer = contentJson.correctAnswers[answerKeys[0]]
+        }
+      } else if (contentJson?.correctAnswer) {
+        // For remedial tests with direct correctAnswer
+        correctAnswer = contentJson.correctAnswer
+      } else if (q.correctAnswerJson) {
+        // For regular tests with correctAnswerJson
+        correctAnswer = typeof q.correctAnswerJson === 'string' ? q.correctAnswerJson : 
+                       Array.isArray(q.correctAnswerJson) ? q.correctAnswerJson.map(String).join(',') : 
+                       String(q.correctAnswerJson || '')
+      }
+      
       return {
         questionId: q.id,
-        answer: typeof q.correctAnswerJson === 'string' ? q.correctAnswerJson : 
-                Array.isArray(q.correctAnswerJson) ? q.correctAnswerJson.map(String) : 
-                String(q.correctAnswerJson || ''),
+        answer: correctAnswer,
         type: mappedType as 'MCQ' | 'FIB' | 'MATCHING' | 'TRUE_FALSE' | 'NOT_GIVEN'
       }
     })
 
     const scoreResult = scoreListening(studentAnswers, correctAnswers)
-    const bandScore = calculateListeningBand(scoreResult.correctCount)
+    
+    // Debug logging for scoring
+    console.log('Scoring Debug:', {
+      studentAnswers,
+      correctAnswers,
+      scoreResult,
+      totalQuestions: correctAnswers.length
+    })
+    
+    // Calculate band score based on percentage for remedial tests
+    let bandScore = 0
+    if (scoreResult.totalQuestions > 0) {
+      const percentage = (scoreResult.correctCount / scoreResult.totalQuestions) * 100
+      bandScore = calculateBandFromPercentage(percentage)
+      console.log('Band Score Calculation:', {
+        correctCount: scoreResult.correctCount,
+        totalQuestions: scoreResult.totalQuestions,
+        percentage: percentage.toFixed(2),
+        bandScore
+      })
+    }
 
     let submission
     if (existingSubmission) {
@@ -111,6 +172,28 @@ export async function POST(request: NextRequest) {
           autoScore: bandScore
         }
       })
+    }
+
+    // Update RemedialTestSession if this is a remedial test
+    if (assignment.mock.title.startsWith('Remedial Test:')) {
+      try {
+        const remedialTestTitle = assignment.mock.title.replace('Remedial Test: ', '')
+        await prisma.remedialTestSession.updateMany({
+          where: {
+            studentId: assignment.studentId,
+            template: {
+              title: remedialTestTitle
+            }
+          },
+          data: {
+            status: 'COMPLETED',
+            completedAt: new Date(),
+            score: Math.round(bandScore * 10) / 10
+          }
+        })
+      } catch (error) {
+        console.error('Error updating RemedialTestSession:', error)
+      }
     }
 
     // Calculate and store overall results

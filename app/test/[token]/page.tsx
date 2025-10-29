@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 interface TestModule {
   id: string
-  type: 'LISTENING' | 'READING' | 'WRITING'
+  type: 'LISTENING' | 'READING' | 'WRITING' | 'MATCHING_HEADINGS'
   duration: number
   instructions: string
   audioUrl?: string
@@ -95,7 +95,8 @@ export default function TestDashboard({ params }: { params: Promise<{ token: str
 
   const startModule = async (moduleType: string) => {
     const { token } = await params
-    router.push(`/test/${token}/${moduleType.toLowerCase()}`)
+    const route = moduleType === 'MATCHING_HEADINGS' ? 'matching-headings' : moduleType.toLowerCase()
+    router.push(`/test/${token}/${route}`)
   }
 
   const getModuleIcon = (type: string) => {
@@ -118,6 +119,12 @@ export default function TestDashboard({ params }: { params: Promise<{ token: str
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
         )
+      case 'MATCHING_HEADINGS':
+        return (
+          <svg className="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+        )
       default:
         return null
     }
@@ -131,6 +138,8 @@ export default function TestDashboard({ params }: { params: Promise<{ token: str
         return 'bg-blue-100 text-blue-600'
       case 'WRITING':
         return 'bg-purple-100 text-purple-600'
+      case 'MATCHING_HEADINGS':
+        return 'bg-orange-100 text-orange-600'
       default:
         return 'bg-gray-100 text-gray-600'
     }
@@ -295,6 +304,14 @@ export default function TestDashboard({ params }: { params: Promise<{ token: str
                       </p>
                     </div>
                   )}
+                  
+                  {module.type === 'MATCHING_HEADINGS' && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-orange-800">
+                        <strong>Matching Headings:</strong> Drag and drop headings to match sections
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 {module.isCompleted ? (
@@ -317,7 +334,9 @@ export default function TestDashboard({ params }: { params: Promise<{ token: str
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : module.type === 'READING'
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : module.type === 'WRITING'
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-orange-600 hover:bg-orange-700 text-white'
                     }`}
                   >
                     Start {module.type} Test

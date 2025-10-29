@@ -29,7 +29,16 @@ export async function POST(request: NextRequest) {
     const mock = await prisma.mock.findUnique({
       where: { id: mockId },
       include: {
-        modules: true
+        modules: {
+          include: {
+            questions: {
+              include: {
+                questionBank: true
+              },
+              orderBy: { order: 'asc' }
+            }
+          }
+        }
       }
     })
 
@@ -49,7 +58,17 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log("existingAssignment",existingAssignment);
+
     if (existingAssignment) {
+      // Extract question types from all modules for existing assignment
+      const questionTypes = new Set<string>()
+      mock.modules.forEach(module => {
+        module.questions.forEach(question => {
+          questionTypes.add(question.questionBank.type)
+        })
+      })
+
       return NextResponse.json({
         success: true,
         assignment: {
@@ -57,6 +76,19 @@ export async function POST(request: NextRequest) {
           tokenHash: existingAssignment.tokenHash,
           status: existingAssignment.status,
           isExisting: true
+        },
+        mockTest: {
+          id: mock.id,
+          title: mock.title,
+          description: mock.description,
+          modules: mock.modules.map(module => ({
+            id: module.id,
+            type: module.type,
+            duration: module.durationMinutes,
+            questionCount: module.questions.length,
+            questionTypes: [...new Set(module.questions.map(q => q.questionBank.type))]
+          })),
+          questionTypes: Array.from(questionTypes)
         }
       })
     }
@@ -88,6 +120,15 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+  
+
+    // Extract question types from all modules
+    const questionTypes = new Set<string>()
+    mock.modules.forEach(module => {
+      module.questions.forEach(question => {
+        questionTypes.add(question.questionBank.type)
+      })
+    })
 
     return NextResponse.json({
       success: true,
@@ -98,6 +139,19 @@ export async function POST(request: NextRequest) {
         mockTitle: assignment.mock.title,
         validUntil: assignment.validUntil,
         isExisting: false
+      },
+      mockTest: {
+        id: mock.id,
+        title: mock.title,
+        description: mock.description,
+        modules: mock.modules.map(module => ({
+          id: module.id,
+          type: module.type,
+          duration: module.durationMinutes,
+          questionCount: module.questions.length,
+          questionTypes: [...new Set(module.questions.map(q => q.questionBank.type))]
+        })),
+        questionTypes: Array.from(questionTypes)
       }
     })
   } catch (error) {

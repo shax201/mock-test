@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
       difficulty,
       duration,
       questions,
+      audioUrl,
+      audioPublicId,
       mockTestId,
       isActive = true
     } = await request.json()
@@ -93,6 +95,8 @@ export async function POST(request: NextRequest) {
         difficulty: difficulty || 'INTERMEDIATE',
         duration: duration || 20,
         questions: questions,
+        audioUrl: audioUrl || null,
+        audioPublicId: audioPublicId || null,
         mockTestId: mockTestId || null,
         isActive,
         createdBy: decoded.userId
