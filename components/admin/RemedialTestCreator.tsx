@@ -3,57 +3,36 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getMockTests } from '@/lib/actions/mock-tests'
+import BasicInfoForm from './remedial/BasicInfoForm'
+import PassageEditor from './remedial/PassageEditor'
+import HeadingsEditor from './remedial/HeadingsEditor'
+import QuestionsListEditor from './remedial/QuestionsListEditor'
+import OptionsEditor from './remedial/OptionsEditor'
+import CorrectAnswerInput from './remedial/CorrectAnswerInput'
+import ReviewSummary from './remedial/ReviewSummary'
+import QuestionAudioListEditor from './remedial/QuestionAudioListEditor'
+import MatchingHeadingsEditor from './remedial/MatchingHeadingsEditor'
+import { PassageSection, QuestionData, RemedialTestData, MockTest } from './remedial/types'
+import QuestionCreationModal from './QuestionCreationModal'
 
-interface PassageSection {
-  id: string
-  number: number
-  content: string
-  hasHeading?: boolean
-  heading?: string
-}
-
-interface QuestionData {
-  id: string
-  passage?: {
-    title: string
-    sections: PassageSection[]
-  }
-  headings?: string[]
-  questions?: string[]
-  correctAnswers: Record<string, string>
-  instructions: string
-}
-
-interface MockTest {
-  id: string
-  title: string
-  description: string | null
-  modules: Array<{ type: string }>
-}
-
-interface RemedialTestData {
-  title: string
-  description: string
-  type: string
-  module: string
-  difficulty: string
-  duration: number
-  mockTestId?: string
-  questions: QuestionData[]
-}
+// Types moved to components/admin/remedial/types
 
 export default function RemedialTestCreator() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [mockTests, setMockTests] = useState<MockTest[]>([])
+  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [testData, setTestData] = useState<RemedialTestData>({
     title: '',
     description: '',
-    type: 'MATCHING_HEADINGS',
-    module: 'READING',
+    type: 'MULTIPLE_CHOICE',
+    module: 'LISTENING',
     difficulty: 'INTERMEDIATE',
     duration: 20,
+    audioUrl: '',
+    audioPublicId: '',
     mockTestId: '',
     questions: []
   })
@@ -66,7 +45,10 @@ export default function RemedialTestCreator() {
     },
     headings: [],
     questions: [],
+    options: [],
+    questionAudios: [],
     correctAnswers: {},
+    correctAnswer: '',
     instructions: ''
   })
 
@@ -90,31 +72,51 @@ export default function RemedialTestCreator() {
     }
   }
 
-  const questionTypes = [
-    { value: 'MATCHING_HEADINGS', label: 'Matching Headings', description: 'Students match headings to reading passage sections' },
-    { value: 'INFORMATION_MATCHING', label: 'Information Matching', description: 'Students match statements to passage sections' },
-    { value: 'MULTIPLE_CHOICE', label: 'Multiple Choice', description: 'Students choose from multiple answer options' },
-    { value: 'NOTES_COMPLETION', label: 'Notes Completion', description: 'Students complete notes from audio or text' }
-  ]
-
-  const modules = [
-    { value: 'READING', label: 'Reading' },
-    { value: 'LISTENING', label: 'Listening' },
-    { value: 'WRITING', label: 'Writing' },
-    { value: 'SPEAKING', label: 'Speaking' }
-  ]
-
-  const difficulties = [
-    { value: 'BEGINNER', label: 'Beginner' },
-    { value: 'INTERMEDIATE', label: 'Intermediate' },
-    { value: 'ADVANCED', label: 'Advanced' }
-  ]
+  // Option lists moved inside child components where needed
 
   const handleBasicInfoChange = (field: string, value: string | number) => {
+    setTestData(prev => {
+      // If changing from LISTENING to another module, delete the audio file
+      if (field === 'module' && prev.module === 'LISTENING' && value !== 'LISTENING' && prev.audioPublicId) {
+        deleteAudioFile(prev.audioPublicId)
+        return {
+          ...prev,
+          [field]: String(value),
+          audioUrl: '',
+          audioPublicId: ''
+        }
+      }
+      return {
+        ...prev,
+        [field]: field === 'duration' ? Number(value) : String(value)
+      }
+    })
+  }
+
+  const handleAudioChange = (file: File | null, url?: string, publicId?: string) => {
     setTestData(prev => ({
       ...prev,
-      [field]: value
+      audioUrl: url || '',
+      audioPublicId: publicId || ''
     }))
+  }
+
+  const deleteAudioFile = async (publicId: string) => {
+    try {
+      const response = await fetch('/api/admin/delete-audio', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ public_id: publicId }),
+      })
+
+      if (!response.ok) {
+        console.error('Failed to delete audio file')
+      }
+    } catch (error) {
+      console.error('Error deleting audio file:', error)
+    }
   }
 
   const handleQuestionChange = (field: string, value: any) => {
@@ -188,8 +190,68 @@ export default function RemedialTestCreator() {
   const addQuestion = () => {
     setCurrentQuestion(prev => ({
       ...prev,
-      questions: [...(prev.questions || []), '']
+      questions: [...(prev.questions || []), ''],
+      questionAudios: [...(prev.questionAudios || []), { url: '' }]
     }))
+  }
+
+  const handleModalSave = (modalData: any) => {
+    const contentFromModal: string = (modalData?.content || '').trim()
+    const content: string = contentFromModal || (modalData?.questionAudio ? 'Audio Question' : '')
+    const audioFromModal = modalData?.questionAudio
+    const newAudioItem = audioFromModal ? { url: audioFromModal.url, publicId: audioFromModal.publicId } : { url: '' }
+
+    // Persist: append new or replace existing item when editing
+    setTestData(prev => {
+      const updated = [...prev.questions]
+      if (editingIndex !== null && editingIndex >= 0 && editingIndex < updated.length) {
+        const prevQ = updated[editingIndex]
+        const replaced: QuestionData = {
+          ...prevQ,
+          questions: [content],
+          questionAudios: [newAudioItem],
+          options: (testData.type === 'MULTIPLE_CHOICE' && Array.isArray(modalData?.options) && modalData.options.length > 0)
+            ? modalData.options
+            : (prevQ.options || []),
+          correctAnswers: {
+            ...(prevQ.correctAnswers || {}),
+            ['0']: modalData?.correctAnswer ? String(modalData.correctAnswer) : (prevQ.correctAnswers ? prevQ.correctAnswers['0'] : '')
+          }
+        }
+        updated[editingIndex] = replaced
+      } else {
+        const created: QuestionData = {
+          id: `q${prev.questions.length + 1}`,
+          passage: { title: '', sections: [] },
+          headings: [],
+          questions: [content],
+          options: (testData.type === 'MULTIPLE_CHOICE' && Array.isArray(modalData?.options)) ? modalData.options : [],
+          questionAudios: [newAudioItem],
+          correctAnswers: modalData?.correctAnswer ? { '0': String(modalData.correctAnswer) } : {},
+          correctAnswer: '',
+          instructions: ''
+        }
+        updated.push(created)
+      }
+      return { ...prev, questions: updated }
+    })
+
+    // Reset the working question state
+    setCurrentQuestion({
+      id: `q${testData.questions.length + 2}`,
+      passage: {
+        title: '',
+        sections: []
+      },
+      headings: [],
+      questions: [],
+      options: [],
+      questionAudios: [],
+      correctAnswers: {},
+      correctAnswer: '',
+      instructions: ''
+    })
+    setEditingIndex(null)
   }
 
   const updateQuestion = (index: number, value: string) => {
@@ -202,7 +264,8 @@ export default function RemedialTestCreator() {
   const removeQuestion = (index: number) => {
     setCurrentQuestion(prev => ({
       ...prev,
-      questions: prev.questions?.filter((_, i) => i !== index) || []
+      questions: prev.questions?.filter((_, i) => i !== index) || [],
+      questionAudios: prev.questionAudios?.filter((_, i) => i !== index) || []
     }))
   }
 
@@ -221,7 +284,10 @@ export default function RemedialTestCreator() {
       },
       headings: [],
       questions: [],
+      options: [],
+      questionAudios: [],
       correctAnswers: {},
+      correctAnswer: '',
       instructions: ''
     })
   }
@@ -230,6 +296,11 @@ export default function RemedialTestCreator() {
     // Validate form data
     if (!testData.title || !testData.type || !testData.module) {
       alert('Please fill in all required fields')
+      return
+    }
+
+    if (testData.module === 'LISTENING' && !testData.audioUrl) {
+      alert('Audio file is required for LISTENING module')
       return
     }
 
@@ -268,134 +339,12 @@ export default function RemedialTestCreator() {
   }
 
   const renderStep1 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Test Title *
-            </label>
-            <input
-              type="text"
-              value={testData.title}
-              onChange={(e) => handleBasicInfoChange('title', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter test title"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Module *
-            </label>
-            <select
-              value={testData.module}
-              onChange={(e) => handleBasicInfoChange('module', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {modules.map(module => (
-                <option key={module.value} value={module.value}>
-                  {module.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question Type *
-            </label>
-            <select
-              value={testData.type}
-              onChange={(e) => handleBasicInfoChange('type', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {questionTypes.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-sm text-gray-500 mt-1">
-              {questionTypes.find(t => t.value === testData.type)?.description}
-            </p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Difficulty *
-            </label>
-            <select
-              value={testData.difficulty}
-              onChange={(e) => handleBasicInfoChange('difficulty', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {difficulties.map(difficulty => (
-                <option key={difficulty.value} value={difficulty.value}>
-                  {difficulty.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration (minutes) *
-            </label>
-            <input
-              type="number"
-              value={testData.duration}
-              onChange={(e) => handleBasicInfoChange('duration', parseInt(e.target.value))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              min="5"
-              max="120"
-            />
-          </div>
-          
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Link to Mock Test (Optional)
-            </label>
-            <select
-              value={testData.mockTestId || ''}
-              onChange={(e) => handleBasicInfoChange('mockTestId', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select a mock test (optional)</option>
-              {mockTests.length > 0 ? (
-                mockTests.map((mockTest) => (
-                  <option key={mockTest.id} value={mockTest.id}>
-                    {mockTest.title} - {mockTest.modules.map(m => m.type).join(', ')}
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>No mock tests available</option>
-              )}
-            </select>
-              <p className="text-sm text-gray-500 mt-1">
-                {mockTests.length > 0 
-                  ? `Found ${mockTests.length} mock test(s) available for linking. Link this remedial test to a specific mock test for better tracking and analytics.`
-                  : 'No mock tests found. Create some mock tests first, or leave this field empty to create a standalone remedial test.'
-                }
-              </p>
-          </div>
-        </div>
-        
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
-          <textarea
-            value={testData.description}
-            onChange={(e) => handleBasicInfoChange('description', e.target.value)}
-            rows={3}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter test description"
-          />
-        </div>
-      </div>
-    </div>
+    <BasicInfoForm
+      testData={testData}
+      mockTests={mockTests}
+      onChange={handleBasicInfoChange}
+      onAudioChange={handleAudioChange}
+    />
   )
 
   const renderStep2 = () => (
@@ -403,196 +352,105 @@ export default function RemedialTestCreator() {
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Question Content</h3>
         
-        {/* Instructions */}
+        {/* Question Type Selection */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Instructions *
+            Question Type
           </label>
-          <textarea
-            value={currentQuestion.instructions}
-            onChange={(e) => handleQuestionChange('instructions', e.target.value)}
-            rows={3}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter question instructions"
-          />
+          <select
+            value={testData.type}
+            onChange={(e) => handleBasicInfoChange('type', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="MULTIPLE_CHOICE">Multiple Choice</option>
+            <option value="TRUE_FALSE">True/False</option>
+            <option value="MATCHING_HEADINGS">Matching Headings</option>
+          </select>
         </div>
 
-        {/* Passage Content for Reading Questions */}
-        {(testData.type === 'MATCHING_HEADINGS' || testData.type === 'INFORMATION_MATCHING') && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Reading Passage
-              </label>
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => addPassageSection(false)}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  + Add Gap Section
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addPassageSection(true)}
-                  className="text-sm text-green-600 hover:text-green-700"
-                >
-                  + Add Section with Heading
-                </button>
+        {/* Matching Headings Editor */}
+        {testData.type === 'MATCHING_HEADINGS' ? (
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Matching Headings Question</h4>
+              <p className="text-sm text-blue-800">
+                Create a passage with sections and provide headings for students to match. 
+                Some sections should have heading gaps where students will drag the correct heading.
+              </p>
+            </div>
+            
+            <MatchingHeadingsEditor
+              question={currentQuestion}
+              onQuestionChange={handleQuestionChange}
+            />
+            
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={addQuestionToTest}
+                disabled={!currentQuestion.passage?.title || !currentQuestion.headings?.length || !currentQuestion.passage?.sections?.length}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Matching Headings Question
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">Create questions using the modal.</div>
+              <button
+                type="button"
+                onClick={() => setIsQuestionModalOpen(true)}
+                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                + Create via Modal
+              </button>
+            </div>
+                      
+            {/* Show created questions */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-900">Created Questions</h4>
+                <span className="text-xs text-gray-500">{testData.questions.length} added</span>
               </div>
-            </div>
-            
-            <div className="mb-4">
-              <input
-                type="text"
-                value={currentQuestion.passage?.title || ''}
-                onChange={(e) => handleQuestionChange('passage', {
-                  ...currentQuestion.passage,
-                  title: e.target.value
-                })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
-                placeholder="Passage Title"
-              />
-            </div>
-            
-            <div className="space-y-4">
-              {currentQuestion.passage?.sections.map((section, index) => (
-                <div key={section.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-700">
-                        Section {section.number}
-                      </span>
-                      <span className={`px-2 py-1 text-xs rounded ${
-                        section.hasHeading 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {section.hasHeading ? 'With Heading' : 'Gap Section'}
-                      </span>
+              {testData.questions.length === 0 ? (
+                <div className="text-sm text-gray-500">No questions added yet. Use the modal to add one.</div>
+              ) : (
+                <div className="space-y-3">
+                  {testData.questions.map((q, qi) => (
+                    <div key={`q-${qi}`} className="border border-gray-200 rounded-md p-3">
+                      {(q.questions || []).map((text, idx) => (
+                        <div key={`q-${qi}-i-${idx}`} className="flex items-center justify-between">
+                          <div className="text-sm text-gray-800">{qi + 1}. {text || 'Audio Question'}</div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                              {testData.type === 'MULTIPLE_CHOICE' ? 'Multiple Choice' : testData.type === 'TRUE_FALSE' ? 'True/False' : testData.type}
+                            </span>
+                            {q.questionAudios && q.questionAudios[idx] && q.questionAudios[idx].url ? (
+                              <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Audio attached</span>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                              onClick={() => { setEditingIndex(qi); setIsQuestionModalOpen(true) }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:text-red-800"
+                              onClick={() => setTestData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== qi) }))}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removePassageSection(section.id)}
-                      className="text-red-600 hover:text-red-700 text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  
-                  {section.hasHeading && (
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Section Heading
-                      </label>
-                      <input
-                        type="text"
-                        value={section.heading || ''}
-                        onChange={(e) => updatePassageSection(section.id, 'heading', e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter section heading"
-                      />
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Section Content
-                    </label>
-                    <textarea
-                      value={section.content}
-                      onChange={(e) => updatePassageSection(section.id, 'content', e.target.value)}
-                      rows={4}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter section content"
-                    />
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Headings for Matching Headings */}
-        {testData.type === 'MATCHING_HEADINGS' && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Headings
-              </label>
-              <button
-                type="button"
-                onClick={addHeading}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                + Add Heading
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              {currentQuestion.headings?.map((heading, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700 w-8">
-                    {String.fromCharCode(65 + index)}.
-                  </span>
-                  <input
-                    type="text"
-                    value={heading}
-                    onChange={(e) => updateHeading(index, e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter heading"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeHeading(index)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Questions for Information Matching */}
-        {testData.type === 'INFORMATION_MATCHING' && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Questions
-              </label>
-              <button
-                type="button"
-                onClick={addQuestion}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                + Add Question
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              {currentQuestion.questions?.map((question, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700 w-8">
-                    {index + 1}.
-                  </span>
-                  <input
-                    type="text"
-                    value={question}
-                    onChange={(e) => updateQuestion(index, e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter question"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeQuestion(index)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -600,53 +458,7 @@ export default function RemedialTestCreator() {
     </div>
   )
 
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Review & Create</h3>
-        
-        <div className="bg-gray-50 rounded-lg p-6">
-          <h4 className="font-medium text-gray-900 mb-4">Test Summary</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Title:</span>
-              <span className="ml-2 font-medium">{testData.title}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Module:</span>
-              <span className="ml-2 font-medium">{testData.module}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Type:</span>
-              <span className="ml-2 font-medium">
-                {questionTypes.find(t => t.value === testData.type)?.label}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Difficulty:</span>
-              <span className="ml-2 font-medium">{testData.difficulty}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Duration:</span>
-              <span className="ml-2 font-medium">{testData.duration} minutes</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Questions:</span>
-              <span className="ml-2 font-medium">{testData.questions.length}</span>
-            </div>
-            {testData.mockTestId && (
-              <div>
-                <span className="text-gray-600">Linked Mock Test:</span>
-                <span className="ml-2 font-medium">
-                  {mockTests.find(mt => mt.id === testData.mockTestId)?.title || 'Unknown'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const renderStep3 = () => (<ReviewSummary testData={testData} mockTests={mockTests} />)
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -699,15 +511,6 @@ export default function RemedialTestCreator() {
           </button>
           
           <div className="flex space-x-4">
-            {currentStep === 2 && (
-              <button
-                onClick={addQuestionToTest}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              >
-                Add Question to Test
-              </button>
-            )}
-            
             {currentStep < 3 ? (
               <button
                 onClick={() => setCurrentStep(prev => prev + 1)}
@@ -727,6 +530,21 @@ export default function RemedialTestCreator() {
           </div>
         </div>
       </div>
+    <QuestionCreationModal
+      isOpen={isQuestionModalOpen}
+      onClose={() => { setIsQuestionModalOpen(false); setEditingIndex(null) }}
+      onSave={(qd) => { handleModalSave(qd); setIsQuestionModalOpen(false) }}
+      part={1}
+      allowedTypes={[ 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'MATCHING_HEADINGS' ]}
+      enableAudioContent={true}
+      initial={editingIndex !== null ? {
+        type: testData.type,
+        content: (testData.questions[editingIndex]?.questions || [''])[0] || '',
+        audioUrl: (testData.questions[editingIndex]?.questionAudios || [{ url: '' }])[0]?.url || '',
+        audioPublicId: (testData.questions[editingIndex]?.questionAudios || [{ publicId: '' }])[0]?.publicId || '',
+        correctAnswer: testData.questions[editingIndex]?.correctAnswers ? testData.questions[editingIndex]?.correctAnswers['0'] : ''
+      } : undefined}
+    />
     </div>
   )
 }

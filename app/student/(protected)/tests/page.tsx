@@ -14,6 +14,9 @@ interface MockTest {
     completedAt: string
     autoScore?: number
   }
+  isRemedial?: boolean
+  remedialType?: string
+  difficulty?: string
 }
 
 export default function StudentTests() {
@@ -62,15 +65,37 @@ export default function StudentTests() {
 
     const fetchListeningTests = async () => {
       try {
-        const response = await fetch('/api/student/listening-tests')
+        // Fetch all remedial tests (all modules, not just LISTENING)
+        const response = await fetch('/api/student/remedial-tests')
         if (response.ok) {
           const data = await response.json()
-          setListeningTests(data.mockTests || [])
+          // Transform remedial tests to match the expected format
+          const transformedRemedialTests = (data.remedialTests || []).map((test: any) => ({
+            id: test.id,
+            title: test.title,
+            description: test.description || 'Remedial Test',
+            duration: test.duration,
+            status: test.attempted ? 'COMPLETED' : 'AVAILABLE',
+            createdAt: new Date().toISOString(),
+            audioUrl: test.module === 'LISTENING' ? null : null,
+            instructions: null,
+            moduleId: null,
+            completionInfo: test.attempted ? {
+              completedAt: test.completedAt || new Date().toISOString(),
+              autoScore: test.score || undefined
+            } : null,
+            isRemedial: true,
+            remedialType: test.type,
+            difficulty: test.difficulty,
+            module: test.module
+          }))
+          // Only show remedial tests, filter out any mock tests
+          setListeningTests(transformedRemedialTests)
         } else {
-          console.error('Failed to fetch listening tests:', response.status)
+          console.error('Failed to fetch remedial tests:', response.status)
         }
       } catch (error) {
-        console.error('Error fetching listening tests:', error)
+        console.error('Error fetching remedial tests:', error)
       } finally {
         setListeningLoading(false)
       }
@@ -120,9 +145,17 @@ export default function StudentTests() {
       })
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
+        console.log("data at join test",data);
         // Redirect to test dashboard to show all available modules
-        window.location.href = `/test/${data.assignment.tokenHash}/reading`
+
+        if(data.mockTest.questionTypes.length === 1 && data.mockTest.questionTypes[0] === 'MATCHING'){
+          window.location.href = `/test/${data.assignment.tokenHash}/matching-headings`
+        } else {
+          window.location.href = `/test/${data.assignment.tokenHash}/reading`
+        }
+
+     
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to join test')
@@ -135,27 +168,44 @@ export default function StudentTests() {
     }
   }
 
-  const handleStartListeningTest = async (mockId: string) => {
-    setStartingTest(mockId)
+  const handleStartListeningTest = async (test: MockTest) => {
+    setStartingTest(test.id)
     try {
-      const response = await fetch('/api/student/start-mock-test', {
+      // All tests in item-wise tab are remedial tests now
+      const response = await fetch('/api/student/start-remedial-test-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ mockId }),
+        body: JSON.stringify({ remedialTestId: test.id }),
       })
 
       if (response.ok) {
         const data = await response.json()
-        // Redirect directly to listening test
-        window.location.href = `/test/${data.assignment.tokenHash}/listening`
+        // Determine the module path based on the remedial test module type
+        const testModule = (test as any).module?.toLowerCase() || 'listening'
+        let modulePath = 'listening'
+        
+        if (testModule === 'reading') {
+          // Check if it's matching headings type
+          if ((test as any).remedialType === 'MATCHING_HEADINGS') {
+            modulePath = 'matching-headings'
+          } else {
+            modulePath = 'reading'
+          }
+        } else if (testModule === 'listening') {
+          modulePath = 'listening'
+        } else if (testModule === 'writing') {
+          modulePath = 'writing'
+        }
+        
+        window.location.href = `/test/${data.token}/${modulePath}`
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to start listening test')
+        alert(error.error || 'Failed to start remedial test')
       }
     } catch (error) {
-      console.error('Error starting listening test:', error)
+      console.error('Error starting remedial test:', error)
       alert('Network error. Please try again.')
     } finally {
       setStartingTest(null)
@@ -320,8 +370,10 @@ export default function StudentTests() {
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                     </div>
-                  ) : publicMockTests.length > 0 ? (
-                    publicMockTests.map((test) => (
+                  ) : (publicMockTests.filter(t => !(t.title || '').toLowerCase().startsWith('remedial test')).length > 0) ? (
+                    publicMockTests
+                      .filter(t => !(t.title || '').toLowerCase().startsWith('remedial test'))
+                      .map((test) => (
                       <div key={test.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
@@ -360,7 +412,7 @@ export default function StudentTests() {
                                 href={`/test/${test.id}`}
                                 className="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700"
                               >
-                                Continue Test
+                                Continue Test Session
                               </Link>
                             ) : (
                               <button
@@ -368,7 +420,7 @@ export default function StudentTests() {
                                 disabled={joiningTest === test.id}
                                 className="bg-purple-600 text-white px-3 py-1 rounded text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {joiningTest === test.id ? 'Joining...' : 'Join Test'}
+                                {joiningTest === test.id ? 'Joining...' : 'Take Test'}
                               </button>
                             )}
                         </div>
@@ -381,7 +433,7 @@ export default function StudentTests() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                         </svg>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No Public Mock Tests Available</h3>
-                        <p className="text-gray-500">Public mock tests will be available here when they are created.</p>
+                        <p className="text-gray-500">Only full mock tests are shown here.</p>
                       </div>
                     </div>
                   )}
@@ -391,7 +443,7 @@ export default function StudentTests() {
               {activeSidebarItem === 'item-wise' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">Listening Tests</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Remedial Tests</h3>
                     <div className="text-sm text-gray-500">
                       {listeningLoading ? 'Loading...' : `${listeningTests.length} test${listeningTests.length !== 1 ? 's' : ''} available`}
                     </div>
@@ -400,16 +452,16 @@ export default function StudentTests() {
                   {listeningLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="mt-2 text-sm text-gray-500">Loading listening tests...</p>
+                      <p className="mt-2 text-sm text-gray-500">Loading remedial tests...</p>
                     </div>
                   ) : listeningTests.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="text-gray-500">
                         <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Listening Tests</h3>
-                        <p className="text-gray-500">No listening tests are currently available</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Remedial Tests</h3>
+                        <p className="text-gray-500">No remedial tests are currently available</p>
                       </div>
                     </div>
                   ) : (
@@ -418,7 +470,23 @@ export default function StudentTests() {
                         <div key={test.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-gray-900 mb-2">{test.title}</h4>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="text-lg font-semibold text-gray-900">{test.title}</h4>
+                                {test.isRemedial && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    Remedial
+                                  </span>
+                                )}
+                                {test.difficulty && (
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    test.difficulty === 'BEGINNER' ? 'bg-green-100 text-green-800' :
+                                    test.difficulty === 'INTERMEDIATE' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
+                                    {test.difficulty}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-gray-600 mb-3">{test.description}</p>
                               <div className="flex items-center space-x-4 text-sm text-gray-500">
                                 <div className="flex items-center">
@@ -431,8 +499,15 @@ export default function StudentTests() {
                                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                                   </svg>
-                                  Listening
+                                  {(test as any).module || 'Remedial'}
                                 </div>
+                                {(test as any).remedialType && (
+                                  <div className="flex items-center">
+                                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+                                      {(test as any).remedialType.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex items-center">
                                   {test.status !== 'COMPLETED' && (
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -465,7 +540,7 @@ export default function StudentTests() {
                                 </Link>
                               ) : (
                                 <button
-                                  onClick={() => handleStartListeningTest(test.id)}
+                                  onClick={() => handleStartListeningTest(test)}
                                   disabled={startingTest === test.id}
                                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >

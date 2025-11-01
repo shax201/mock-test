@@ -65,6 +65,10 @@ interface Question {
   instructions?: string
   correctAnswer: string | string[] | Record<string, string>
   points: number
+  questionAudios?: Array<{
+    url: string
+    publicId: string
+  }>
 }
 
 interface Module {
@@ -456,89 +460,46 @@ export default function ListeningPage({ params }: { params: Promise<{ token: str
                 </div>
               </div>
 
-              {/* Audio Player */}
+              {/* Instructions Content */}
               <div className="flex-1 overflow-y-auto p-6">
-                <h3 className="font-bold text-gray-900 mb-4">Listening Audio - Part {currentPart}</h3>
-                {(module?.audioUrl || module?.listeningData?.audioUrl) ? (
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <audio 
-                        controls 
-                        className="w-full"
-                        onPlay={() => setAudioPlaying(true)}
-                        onPause={() => setAudioPlaying(false)}
-                        onEnded={() => setAudioPlaying(false)}
-                      >
-                        <source src={module.listeningData?.audioUrl || module.audioUrl} type="audio/mpeg" />
-                        Your browser does not support the audio element.
-                      </audio>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Audio file: {(module.listeningData?.audioUrl || module.audioUrl)?.split('/').pop()}
-                        {module.listeningData?.audioDuration && (
-                          <span className="ml-2">
-                            (Duration: {Math.floor(module.listeningData.audioDuration / 60)}:{(module.listeningData.audioDuration % 60).toString().padStart(2, '0')})
-                          </span>
-                        )}
-                      </p>
+                <h3 className="font-bold text-gray-900 mb-4">Listening Instructions - Part {currentPart}</h3>
+                
+                {/* Part-specific content from listening data */}
+                {module && module.listeningData && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-bold text-green-900 mb-2">Part {currentPart} Content</h4>
+                    <div className="text-sm text-green-800">
+                      {(() => {
+                        const partContent = currentPart === 1 ? module.listeningData.part1Content :
+                                          currentPart === 2 ? module.listeningData.part2Content :
+                                          module.listeningData.part3Content
+                        return partContent || 'No specific content for this part.'
+                      })()}
                     </div>
-                    
-                    {/* Part-specific content from listening data */}
-                    {module.listeningData && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <h4 className="font-bold text-green-900 mb-2">Part {currentPart} Content</h4>
-                        <div className="text-sm text-green-800">
-                          {(() => {
-                            const partContent = currentPart === 1 ? module.listeningData.part1Content :
-                                              currentPart === 2 ? module.listeningData.part2Content :
-                                              module.listeningData.part3Content
-                            return partContent || 'No specific content for this part.'
-                          })()}
+                    {(() => {
+                      const partInstructions = currentPart === 1 ? module.listeningData.part1Instructions :
+                                             currentPart === 2 ? module.listeningData.part2Instructions :
+                                             module.listeningData.part3Instructions
+                      return partInstructions && (
+                        <div className="mt-2 text-xs text-green-700">
+                          <strong>Instructions:</strong> {partInstructions}
                         </div>
-                        {(() => {
-                          const partInstructions = currentPart === 1 ? module.listeningData.part1Instructions :
-                                                 currentPart === 2 ? module.listeningData.part2Instructions :
-                                                 module.listeningData.part3Instructions
-                          return partInstructions && (
-                            <div className="mt-2 text-xs text-green-700">
-                              <strong>Instructions:</strong> {partInstructions}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    )}
-                    
-                    {audioPlaying && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-sm text-blue-800">
-                          <strong>Now Playing:</strong> Part {currentPart} audio content
-                          {module.listeningData && (
-                            <span className="ml-2">
-                              (Timing: {(() => {
-                                const startTime = currentPart === 1 ? module.listeningData.part1AudioStart :
-                                                currentPart === 2 ? module.listeningData.part2AudioStart :
-                                                module.listeningData.part3AudioStart
-                                const endTime = currentPart === 1 ? module.listeningData.part1AudioEnd :
-                                              currentPart === 2 ? module.listeningData.part2AudioEnd :
-                                              module.listeningData.part3AudioEnd
-                                return `${startTime}s - ${endTime}s`
-                              })()})
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 className="text-sm font-bold text-yellow-900 mb-2">No Audio File</h4>
-                    <p className="text-sm text-yellow-800">
-                      No audio file has been uploaded for this listening module.
-                    </p>
-                    <p className="text-sm text-yellow-700 mt-2">
-                      Please contact your instructor if you believe this is an error.
-                    </p>
+                      )
+                    })()}
                   </div>
                 )}
+                
+                {/* Additional instructions for remedial tests */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <h4 className="font-bold text-blue-900 mb-2">Important Notes</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Each question has its own audio player on the right</li>
+                    <li>• Listen to the individual question audio before answering</li>
+                    <li>• You can replay each question's audio as many times as needed</li>
+                    <li>• Answer all questions based on what you hear in the audio</li>
+                    <li>• Your answers will be auto-saved as you progress</li>
+                  </ul>
+                </div>
               </div>
             </div>
 
@@ -561,7 +522,7 @@ export default function ListeningPage({ params }: { params: Promise<{ token: str
               <div className="bg-gray-800 text-white px-6 py-3">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">
-                    Part {currentPart} - Answer Sheet
+                    Part {currentPart} - Questions
                   </h2>
                   <div className="text-sm">
                     <span className="text-gray-300">
@@ -600,6 +561,32 @@ export default function ListeningPage({ params }: { params: Promise<{ token: str
                   {getQuestionsForPart(currentPart).length > 0 ? (
                     getQuestionsForPart(currentPart).map((question, index) => (
                       <div key={question.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                        {/* Individual question audio player for remedial tests */}
+                        {question.questionAudios && question.questionAudios.length > 0 && (
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h4 className="text-sm font-bold text-blue-900 mb-2">Question {index + 1} Audio</h4>
+                            <div className="space-y-2">
+                              {question.questionAudios.map((audio, audioIndex) => (
+                                <div key={audioIndex} className="flex items-center space-x-2">
+                                  <audio 
+                                    controls 
+                                    className="flex-1"
+                                    onPlay={() => setAudioPlaying(true)}
+                                    onPause={() => setAudioPlaying(false)}
+                                    onEnded={() => setAudioPlaying(false)}
+                                  >
+                                    <source src={audio.url} type="audio/mpeg" />
+                                    Your browser does not support the audio element.
+                                  </audio>
+                                  <span className="text-xs text-gray-500">
+                                    Audio {audioIndex + 1}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
                         <IELTSQuestionRenderer
                           question={question}
                           questionNumber={index + 1}

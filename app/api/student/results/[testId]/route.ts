@@ -120,18 +120,34 @@ export async function GET(
         orderBy: { order: 'asc' }
       })
 
-      const studentAnswers = submission.answersJson as Record<string, any>
+      const studentAnswers = (submission.answersJson || {}) as Record<string, any>
       
-      questionDetails[moduleType] = questions.map((question, index) => {
+      questionDetails[moduleType] = questions.map((question) => {
         const contentJson = question.questionBank.contentJson as any
         const studentAnswer = studentAnswers[question.id] || ''
-        const correctAnswer = question.correctAnswerJson || ''
-        
+
+        // Prefer remedial-style answers stored inside contentJson
+        let correctAnswer: string = ''
+        if (contentJson?.correctAnswers && typeof contentJson.correctAnswers === 'object') {
+          const keys = Object.keys(contentJson.correctAnswers)
+          if (keys.length > 0) {
+            correctAnswer = String(contentJson.correctAnswers[keys[0]] ?? '')
+          }
+        } else if (contentJson?.correctAnswer) {
+          correctAnswer = String(contentJson.correctAnswer)
+        } else if (typeof question.correctAnswerJson === 'string') {
+          correctAnswer = question.correctAnswerJson
+        } else if (Array.isArray(question.correctAnswerJson)) {
+          correctAnswer = (question.correctAnswerJson as any[]).map(String).join(',')
+        } else if (question.correctAnswerJson != null) {
+          correctAnswer = String(question.correctAnswerJson)
+        }
+
         // Check if answer is correct (using the same logic as auto-scorer)
         let isCorrect = false
-        if (studentAnswer && correctAnswer && typeof correctAnswer === 'string') {
-          let normalizedStudent = studentAnswer.trim().toLowerCase()
-          
+        if (studentAnswer && correctAnswer) {
+          let normalizedStudent = String(studentAnswer).trim().toLowerCase()
+
           // For multiple choice questions, extract the letter if the answer is in format "A) Option text"
           if (question.questionBank.type === 'MULTIPLE_CHOICE' || question.questionBank.type === 'MCQ') {
             const letterMatch = normalizedStudent.match(/^([a-d])\)/)
@@ -139,8 +155,8 @@ export async function GET(
               normalizedStudent = letterMatch[1]
             }
           }
-          
-          isCorrect = correctAnswer.trim().toLowerCase() === normalizedStudent
+
+          isCorrect = String(correctAnswer).trim().toLowerCase() === normalizedStudent
         }
 
         return {

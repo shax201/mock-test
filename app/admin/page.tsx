@@ -101,7 +101,7 @@ export default function AdminDashboard() {
             Dashboard
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Welcome to the IELTS Mock Test Admin Panel. Here's what's happening with your tests.
+            Welcome to the IELTS Mock Test Admin Panel. Here&apos;s what&apos;s happening with your tests.
           </p>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">

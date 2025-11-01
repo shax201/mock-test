@@ -34,6 +34,8 @@ export default function MatchingHeadingsQuestion({
 }: MatchingHeadingsQuestionProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers)
   const [draggedHeading, setDraggedHeading] = useState<string | null>(null)
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(65)
+  const [isResizing, setIsResizing] = useState<boolean>(false)
 
   useEffect(() => {
     setAnswers(initialAnswers)
@@ -127,6 +129,45 @@ export default function MatchingHeadingsQuestion({
     e.dataTransfer.dropEffect = 'move'
   }
 
+  // Resizable divider handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return
+    const containerWidth = window.innerWidth
+    const newLeft = (e.clientX / containerWidth) * 100
+    const constrained = Math.min(Math.max(newLeft, 20), 80)
+    setLeftPanelWidth(constrained)
+  }
+
+  const handleMouseUp = () => {
+    setIsResizing(false)
+  }
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing])
+
   const getAnswerForSection = (sectionId: string) => {
     return answers[sectionId] || ''
   }
@@ -163,9 +204,12 @@ export default function MatchingHeadingsQuestion({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 select-none">
         {/* Left Panel - Reading Passage */}
-        <div className="flex-1 overflow-y-auto border-r border-gray-200">
+        <div
+          className="overflow-y-auto border-r border-gray-200"
+          style={{ width: `${leftPanelWidth}%` }}
+        >
           {/* Part 1 Header */}
           <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -303,9 +347,20 @@ export default function MatchingHeadingsQuestion({
           </div>
         </div>
 
+        {/* Resizable Divider */}
+        <div
+          className={`w-1 bg-gray-300 hover:bg-gray-400 cursor-col-resize flex items-center justify-center transition-colors ${
+            isResizing ? 'bg-gray-500' : ''
+          }`}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="w-0.5 h-8 bg-gray-500 rounded-full" />
+        </div>
+
         {/* Right Panel - Headings List */}
         <div 
-          className="w-80 bg-gray-50 p-6"
+          className="bg-gray-50 p-6"
+          style={{ width: `${100 - leftPanelWidth}%` }}
           onDrop={handleDropToHeadings}
           onDragOver={handleDragOver}
         >

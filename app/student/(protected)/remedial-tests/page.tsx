@@ -11,7 +11,8 @@ interface RemedialTest {
   module: string
   difficulty: string
   duration: number
-  questions: any[]
+  questions: Record<string, any>[]
+  attempted?: boolean
   mockTest?: {
     id: string
     title: string
@@ -72,8 +73,20 @@ export default function RemedialTests() {
 
       if (response.ok) {
         const data = await response.json()
-        // Navigate to the existing test system using the generated token
-        router.push(`/test/${data.token}`)
+        // Navigate to the appropriate module based on the remedial test type
+        const testModule = data.module?.toLowerCase()
+        if (testModule === 'listening') {
+          router.push(`/test/${data.token}/listening`)
+        } else if (testModule === 'reading') {
+          router.push(`/test/${data.token}/reading`)
+        } else if (testModule === 'writing') {
+          router.push(`/test/${data.token}/writing`)
+        } else if (testModule === 'speaking') {
+          router.push(`/test/${data.token}/speaking`)
+        } else {
+          // Fallback to the main test page
+          router.push(`/test/${data.token}`)
+        }
       } else {
         const errorData = await response.json()
         console.error('Error starting remedial test:', errorData.error)
@@ -203,6 +216,14 @@ export default function RemedialTests() {
                       <span className="text-sm text-gray-500">
                         {test.questions.length} questions
                       </span>
+                      {test.attempted && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          Attempted
+                        </span>
+                      )}
                       {test.mockTest && (
                         <span className="text-sm text-blue-600">
                           <strong>Related to:</strong> {test.mockTest.title}
@@ -211,23 +232,32 @@ export default function RemedialTests() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <button
-                      onClick={() => startRemedialTest(test.id)}
-                      disabled={startingTest === test.id}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {startingTest === test.id ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Starting...
-                        </>
-                      ) : (
-                        'Take Test'
-                      )}
-                    </button>
+                    {test.attempted ? (
+                      <div className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-600 bg-gray-100 cursor-not-allowed">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Attempted
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startRemedialTest(test.id)}
+                        disabled={startingTest === test.id}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {startingTest === test.id ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Starting...
+                          </>
+                        ) : (
+                          'Take Test'
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

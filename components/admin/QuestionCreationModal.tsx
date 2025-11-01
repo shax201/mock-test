@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import AudioFileUpload from './AudioFileUpload'
 import { X } from 'lucide-react'
 
 interface QuestionCreationModalProps {
@@ -8,6 +9,16 @@ interface QuestionCreationModalProps {
   onClose: () => void
   onSave: (questionData: any) => void
   part: 1 | 2 | 3
+  allowedTypes?: string[]
+  enableAudioContent?: boolean
+  initial?: {
+    type?: string
+    content?: string
+    audioUrl?: string
+    audioPublicId?: string
+    correctAnswer?: string
+    instructions?: string
+  }
 }
 
 const questionTypes = [
@@ -17,22 +28,64 @@ const questionTypes = [
   { value: 'TRUE_FALSE_NOT_GIVEN', label: 'True/False/Not Given', description: 'Determine if statement is true, false, or not given' },
   { value: 'FIB', label: 'Fill in the Blank', description: 'Fill in missing words in sentences' },
   { value: 'MATCHING', label: 'Matching', description: 'Match items from two lists' },
+  { value: 'MATCHING_HEADINGS', label: 'Matching Headings', description: 'Match headings to passage sections' },
   { value: 'MCQ', label: 'Multiple Choice Question', description: 'Multiple choice with single answer' },
   { value: 'TRUE_FALSE', label: 'True/False', description: 'Determine if statement is true or false' },
   { value: 'NOT_GIVEN', label: 'Not Given', description: 'Determine if information is not given' }
 ]
 
-export default function QuestionCreationModal({ isOpen, onClose, onSave, part }: QuestionCreationModalProps) {
+export default function QuestionCreationModal({ isOpen, onClose, onSave, part, allowedTypes, enableAudioContent, initial }: QuestionCreationModalProps) {
+  const isEditing = Boolean(initial)
   const [questionType, setQuestionType] = useState<string>('MULTIPLE_CHOICE')
   const [content, setContent] = useState('')
   const [points, setPoints] = useState(1)
   const [options, setOptions] = useState<string[]>(['', '', '', ''])
   const [correctAnswer, setCorrectAnswer] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [audioUrl, setAudioUrl] = useState('')
+  const [audioPublicId, setAudioPublicId] = useState('')
+
+  const resetAll = () => {
+    console.log('Resetting all values')
+    setQuestionType('MULTIPLE_CHOICE')
+    setContent('')
+    setPoints(1)
+    setOptions(['', '', '', ''])
+    setCorrectAnswer('')
+    setInstructions('')
+    setAudioUrl('')
+    setAudioPublicId('')
+  }
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      console.log('Modal closed, resetting values')
+      resetAll()
+    }
+  }, [isOpen])
+
+  // Set initial values when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('Setting initial values:', initial)
+      setQuestionType(initial?.type || 'MULTIPLE_CHOICE')
+      setContent(initial?.content || '')
+      setCorrectAnswer(initial?.correctAnswer || '')
+      setInstructions(initial?.instructions || '')
+      setAudioUrl(initial?.audioUrl || '')
+      setAudioPublicId(initial?.audioPublicId || '')
+      console.log('Audio URL set to:', initial?.audioUrl)
+    }
+  }, [isOpen, initial])
 
   const handleSave = () => {
-    if (!content.trim()) {
+    if (!enableAudioContent && !content.trim()) {
       alert('Please enter question content')
+      return
+    }
+    if (enableAudioContent && !audioUrl) {
+      alert('Please upload question audio')
       return
     }
 
@@ -42,6 +95,7 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
       points,
       part,
       instructions: instructions.trim(),
+      ...(enableAudioContent ? { questionAudio: { url: audioUrl, publicId: audioPublicId } } : {}),
       ...(questionType === 'MULTIPLE_CHOICE' || questionType === 'MCQ' ? {
         options: options.filter(opt => opt.trim()),
         correctAnswer
@@ -64,12 +118,7 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
   }
 
   const handleClose = () => {
-    setQuestionType('MULTIPLE_CHOICE')
-    setContent('')
-    setPoints(1)
-    setOptions(['', '', '', ''])
-    setCorrectAnswer('')
-    setInstructions('')
+    resetAll()
     onClose()
   }
 
@@ -97,7 +146,7 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">
-            Create Question for Part {part}
+            {isEditing ? 'Edit' : 'Create'} Question for Part {part}
           </h2>
           <button
             onClick={handleClose}
@@ -114,7 +163,7 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
               Question Type
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {questionTypes.map((type) => (
+              {(allowedTypes ? questionTypes.filter(t => allowedTypes.includes(t.value)) : questionTypes).map((type) => (
                 <div
                   key={type.value}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -136,18 +185,35 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
           </div>
 
           {/* Question Content */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question Content *
-            </label>
-            <textarea
-              rows={3}
-              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Enter your question here..."
-            />
-          </div>
+          {!enableAudioContent && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Question Content *
+              </label>
+              <textarea
+                rows={3}
+                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter your question here..."
+              />
+            </div>
+          )}
+
+          {enableAudioContent && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Question Audio *
+              </label>
+              <AudioFileUpload
+                onFileChange={(_file, url, publicId) => { setAudioUrl(url || ''); setAudioPublicId(publicId || '') }}
+                initialUrl={audioUrl}
+                initialPublicId={audioPublicId || ''}
+                accept="audio/*"
+                maxSize={25}
+              />
+            </div>
+          )}
 
           {/* Instructions */}
           <div>
@@ -280,7 +346,7 @@ export default function QuestionCreationModal({ isOpen, onClose, onSave, part }:
             onClick={handleSave}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Create Question
+            {isEditing ? 'Update Question' : 'Create Question'}
           </button>
         </div>
       </div>

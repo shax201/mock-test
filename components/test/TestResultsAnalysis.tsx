@@ -260,29 +260,33 @@ export default function TestResultsAnalysis({ testId }: TestResultsAnalysisProps
           {/* Content Area */}
           {activeTab === 'self-analysis' && activeSubTab === 'brief' && (
             <div className="text-center">
-              {/* Band Score Cards */}
-              <div className="flex justify-center space-x-8 mb-8">
-                {/* Listening Card */}
-                <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
-                  <div className="text-4xl font-bold text-gray-900 mb-2">{results.bandScores.listening}</div>
-                  <div className="text-sm text-gray-600 mb-1">Band Score</div>
-                  <div className="text-sm font-medium text-gray-800">LISTENING</div>
-                </div>
+          {/* Band Score Cards */}
+          <div className="flex justify-center space-x-8 mb-8">
+            {/* Listening Card */}
+            <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
+              <div className="text-4xl font-bold text-gray-900 mb-2">{results.bandScores?.listening ?? 0}</div>
+              <div className="text-sm text-gray-600 mb-1">Band Score</div>
+              <div className="text-sm font-medium text-gray-800">LISTENING</div>
+            </div>
 
-                {/* Reading Card */}
-                <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
-                  <div className="text-4xl font-bold text-gray-900 mb-2">{results.detailedScores.reading.bandScore}</div>
-                  <div className="text-sm text-gray-600 mb-1">Band Score</div>
-                  <div className="text-sm font-medium text-gray-800">READING</div>
-                </div>
-
-                {/* Writing Card */}
-                <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
-                  <div className="text-4xl font-bold text-gray-900 mb-2">{results.bandScores.writing}</div>
-                  <div className="text-sm text-gray-600 mb-1">Band Score</div>
-                  <div className="text-sm font-medium text-gray-800">WRITING</div>
-                </div>
+            {/* Reading Card (optional) */}
+            {results.detailedScores?.reading && (
+              <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
+                <div className="text-4xl font-bold text-gray-900 mb-2">{results.detailedScores.reading.bandScore}</div>
+                <div className="text-sm text-gray-600 mb-1">Band Score</div>
+                <div className="text-sm font-medium text-gray-800">READING</div>
               </div>
+            )}
+
+            {/* Writing Card (optional) */}
+            {typeof results.bandScores?.writing === 'number' && (
+              <div className="bg-white border border-gray-300 rounded-lg p-6 text-center min-w-[150px]">
+                <div className="text-4xl font-bold text-gray-900 mb-2">{results.bandScores.writing}</div>
+                <div className="text-sm text-gray-600 mb-1">Band Score</div>
+                <div className="text-sm font-medium text-gray-800">WRITING</div>
+              </div>
+            )}
+          </div>
 
               {/* Review Link */}
               <div className="text-center">
@@ -532,8 +536,19 @@ export default function TestResultsAnalysis({ testId }: TestResultsAnalysisProps
 
                                 if (response.ok) {
                                   const data = await response.json()
-                                  // Navigate to the existing test system using the generated token
-                                  window.location.href = `/test/${data.token}/reading`
+                                  console.log("data",data);
+                                  
+                                  // Navigate to the appropriate module based on test type
+                                  let modulePath = 'reading' // default
+                                  if (data.module === 'MATCHING_HEADINGS' || test.type === 'MATCHING_HEADINGS') {
+                                    modulePath = 'matching-headings'
+                                  } else if (data.module === 'LISTENING') {
+                                    modulePath = 'listening'
+                                  } else if (data.module === 'WRITING') {
+                                    modulePath = 'writing'
+                                  }
+                                  
+                                  window.location.href = `/test/${data.token}/${modulePath}`
                                 } else {
                                   const errorData = await response.json()
                                   alert('Failed to start remedial test. Please try again.')

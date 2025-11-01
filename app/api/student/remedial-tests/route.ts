@@ -65,18 +65,84 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Check which remedial tests the student has already attempted
+    const studentAssignments = await prisma.assignment.findMany({
+      where: {
+        studentId: decoded.userId,
+        mock: {
+          title: {
+            startsWith: 'Remedial Test:'
+          }
+        }
+      },
+      include: {
+        submissions: {
+          where: {
+            submittedAt: {
+              not: null
+            }
+          }
+        },
+        mock: true
+      }
+    })
+
+    // Also check RemedialTestSession for completed tests
+    const completedSessions = await prisma.remedialTestSession.findMany({
+      where: {
+        studentId: decoded.userId,
+        completedAt: {
+          not: null
+        }
+      },
+      include: {
+        template: true
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    })
+
+    // Create a map of attempted remedial tests with completion info (keyed by template ID)
+    const attemptedTests = new Map()
+    
+    // Add from assignments (if any - typically remedial tests use sessions, not assignments)
+    studentAssignments.forEach(assignment => {
+      if (assignment.submissions.length > 0) {
+        // Note: This path is less common for remedial tests
+        // Remedial tests typically use RemedialTestSession
+      }
+    })
+
+    // Add from completed sessions (key by templateId)
+    completedSessions.forEach(session => {
+      if (session.templateId) {
+        attemptedTests.set(session.templateId, {
+          attempted: true,
+          completedAt: session.completedAt,
+          score: session.score
+        })
+      }
+    })
+
     // Convert templates to the format expected by the frontend
-    const remedialTests = remedialTestTemplates.map(template => ({
-      id: template.id,
-      title: template.title,
-      description: template.description,
-      type: template.type,
-      module: template.module,
-      difficulty: template.difficulty,
-      duration: template.duration,
-      questions: template.questions,
-      mockTest: template.mockTest
-    }))
+    const remedialTests = remedialTestTemplates.map(template => {
+      const attemptInfo = attemptedTests.get(template.id) || { attempted: false }
+      return {
+        id: template.id,
+        title: template.title,
+        description: template.description,
+        type: template.type,
+        module: template.module,
+        difficulty: template.difficulty,
+        duration: template.duration,
+        questions: template.questions,
+        mockTest: template.mockTest,
+        attempted: attemptInfo.attempted,
+        completedAt: attemptInfo.completedAt || null,
+        score: attemptInfo.score || null
+      }
+    })
 
     return NextResponse.json({
       success: true,

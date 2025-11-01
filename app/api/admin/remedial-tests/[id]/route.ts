@@ -91,6 +91,8 @@ export async function PUT(
       difficulty,
       duration,
       questions,
+      audioUrl,
+      audioPublicId,
       mockTestId,
       isActive
     } = await request.json()
@@ -119,6 +121,8 @@ export async function PUT(
         ...(difficulty && { difficulty }),
         ...(duration && { duration }),
         ...(questions && { questions }),
+        ...(audioUrl !== undefined && { audioUrl }),
+        ...(audioPublicId !== undefined && { audioPublicId }),
         ...(mockTestId !== undefined && { mockTestId }),
         ...(isActive !== undefined && { isActive })
       }

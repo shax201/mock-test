@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface AudioFileUploadProps {
   onFileChange: (file: File | null, url?: string, publicId?: string) => void
@@ -20,10 +20,26 @@ export default function AudioFileUpload({
   const [file, setFile] = useState<File | null>(null)
   const [url, setUrl] = useState(initialUrl)
   const [publicId, setPublicId] = useState(initialPublicId)
+  
+  // Debug logging
+  console.log('AudioFileUpload received initialUrl:', initialUrl)
+  console.log('AudioFileUpload received initialPublicId:', initialPublicId)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Update URL when initialUrl prop changes
+  useEffect(() => {
+    if (initialUrl !== url) {
+      console.log('Updating URL from initialUrl:', initialUrl)
+      setUrl(initialUrl)
+    }
+    if (initialPublicId !== publicId) {
+      console.log('Updating publicId from initialPublicId:', initialPublicId)
+      setPublicId(initialPublicId)
+    }
+  }, [initialUrl, initialPublicId])
 
   const handleFileSelect = async (selectedFile: File) => {
     setError(null)

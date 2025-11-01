@@ -2,6 +2,12 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Configuration: Number of mock tests to create
+const NUMBER_OF_TESTS = 5
+
+// Configuration: Whether to clear existing tests before creating new ones
+const CLEAR_EXISTING_TESTS = true
+
 async function clearAllMockTests() {
   console.log('🗑️  Clearing all existing mock tests and questions...')
   
@@ -19,8 +25,9 @@ async function clearAllMockTests() {
   }
 }
 
-async function createComprehensiveMockTest() {
-  console.log('📝 Creating comprehensive mock test...')
+async function createComprehensiveMockTest(testNumber: number = 1) {
+  const testSuffix = NUMBER_OF_TESTS > 1 ? ` - Test ${testNumber}` : ''
+  console.log(`📝 Creating comprehensive mock test ${testNumber}...`)
   
   // First, find or create an admin user
   let adminUser = await prisma.user.findFirst({
@@ -42,7 +49,7 @@ async function createComprehensiveMockTest() {
   // Create the mock test
   const mockTest = await prisma.mock.create({
     data: {
-      title: 'IELTS Academic Mock Test - Comprehensive',
+      title: `IELTS Academic Mock Test - Comprehensive${testSuffix}`,
       description: 'A complete IELTS Academic mock test with all question types and comprehensive content',
       createdBy: adminUser.id,
     }
@@ -304,16 +311,29 @@ async function createComprehensiveMockTest() {
 async function main() {
   try {
     console.log('🚀 Starting comprehensive mock test creation...')
+    console.log(`📊 Configuration: Creating ${NUMBER_OF_TESTS} mock test(s)`)
     
-    // Clear all existing data
-    await clearAllMockTests()
+    // Clear all existing data if configured
+    if (CLEAR_EXISTING_TESTS) {
+      await clearAllMockTests()
+    }
     
-    // Create new comprehensive mock test
-    const mockTest = await createComprehensiveMockTest()
+    // Create multiple comprehensive mock tests
+    const createdMockTests = []
+    for (let i = 1; i <= NUMBER_OF_TESTS; i++) {
+      console.log(`\n🔄 Creating mock test ${i} of ${NUMBER_OF_TESTS}...`)
+      const mockTest = await createComprehensiveMockTest(i)
+      createdMockTests.push(mockTest)
+      console.log(`✅ Mock test ${i} created successfully!`)
+    }
     
-    console.log('🎉 Comprehensive mock test creation completed successfully!')
-    console.log(`🔗 You can now access the mock test in the admin panel`)
-    console.log(`📝 Mock Test: "${mockTest.title}"`)
+    console.log('\n🎉 All comprehensive mock tests creation completed successfully!')
+    console.log(`📊 Total created: ${createdMockTests.length} mock test(s)`)
+    console.log(`🔗 You can now access the mock tests in the admin panel`)
+    console.log('\n📝 Created Mock Tests:')
+    createdMockTests.forEach((mockTest, index) => {
+      console.log(`   ${index + 1}. "${mockTest.title}" (ID: ${mockTest.id})`)
+    })
     
   } catch (error) {
     console.error('❌ Error during comprehensive mock test creation:', error)
