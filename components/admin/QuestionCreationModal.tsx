@@ -28,6 +28,7 @@ const questionTypes = [
   { value: 'TRUE_FALSE_NOT_GIVEN', label: 'True/False/Not Given', description: 'Determine if statement is true, false, or not given' },
   { value: 'FIB', label: 'Fill in the Blank', description: 'Fill in missing words in sentences' },
   { value: 'MATCHING', label: 'Matching', description: 'Match items from two lists' },
+  { value: 'MATCHING_HEADINGS', label: 'Matching Headings', description: 'Match headings to passage sections' },
   { value: 'MCQ', label: 'Multiple Choice Question', description: 'Multiple choice with single answer' },
   { value: 'TRUE_FALSE', label: 'True/False', description: 'Determine if statement is true or false' },
   { value: 'NOT_GIVEN', label: 'Not Given', description: 'Determine if information is not given' }

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       include: {
         mockTest: true
       }
-    })
+    }) as any
 
     if (!remedialTest) {
       return NextResponse.json({ error: 'Remedial test not found' }, { status: 404 })
@@ -73,19 +73,87 @@ export async function POST(request: NextRequest) {
     })
 
     // Transform remedial test questions to the format expected by the frontend
-    const transformedQuestions = Array.isArray(remedialTest.questions) 
-      ? remedialTest.questions.map((q: any, index: number) => ({
-          id: q.id || `q${index + 1}`,
-          type: mapQuestionType(remedialTest.type),
-          content: q.questions?.[0] || q.content || 'Question',
-          options: q.options || [],
-          correctAnswer: q.correctAnswer || q.correctAnswers?.["0"] || '',
-          points: 1,
-          part: 1,
-          instructions: q.instructions || '',
-          questionAudios: q.questionAudios || []
-        }))
+    type TransformedQuestion = {
+      id: string
+      type: 'MATCHING' | string
+      // Matching-specific fields
+      passage?: string
+      headings?: string[]
+      correctAnswers?: Record<string, string>
+      // Non-matching fields
+      content?: string
+      options?: string[]
+      correctAnswer?: string
+      questionAudios?: string[]
+      // Common fields
+      instructions: string
+      points: number
+      part: number
+    }
+
+    type SourceQuestion = {
+      id?: string
+      passage?: string
+      headings?: string[]
+      correctAnswers?: Record<string, string>
+      instructions?: string
+      questions?: unknown[]
+      content?: string
+      options?: string[]
+      correctAnswer?: string
+      questionAudios?: string[]
+    }
+
+    // Prepare passageContent for READING module (HTML string per part)
+    let passageContent: any = undefined
+    let part1PassageHtml: string | undefined = undefined
+    if (remedialTest.module === 'READING') {
+      const firstMatching = Array.isArray(remedialTest.questions)
+        ? (remedialTest.questions as any[]).find((q) => q.id === '__passage__' && typeof q.passage === 'string') ||
+          (remedialTest.questions as any[]).find((q) => typeof q.passage === 'string')
+        : undefined
+      const part1Passage = typeof firstMatching?.passage === 'string' ? firstMatching.passage : undefined
+      part1PassageHtml = part1Passage
+      passageContent = remedialTest.passageContent || (part1Passage ? { part1: part1Passage, part2: '', part3: '' } : undefined)
+    }
+
+    // Extract helper passage question if present and exclude it from real questions
+    const sourceQuestions: SourceQuestion[] = Array.isArray(remedialTest.questions)
+      ? (remedialTest.questions as SourceQuestion[]).filter((q: any) => q?.id !== '__passage__')
       : []
+
+    const transformedQuestions: TransformedQuestion[] = sourceQuestions.length > 0
+      ? sourceQuestions.map((q: SourceQuestion, index: number): TransformedQuestion => {
+          // Special handling for matching headings questions
+          if (remedialTest.type === 'MATCHING_HEADINGS' && q.passage && q.headings) {
+            return {
+              id: q.id || `q${index + 1}`,
+              type: 'MATCHING',
+              passage: q.passage,
+              headings: q.headings,
+              correctAnswers: q.correctAnswers || {},
+              instructions: q.instructions || '',
+              points: 1,
+              part: 1
+            }
+          } else {
+            return {
+              id: q.id || `q${index + 1}`,
+              type: mapQuestionType(remedialTest.type),
+              content: (q.questions && typeof q.questions[0] === 'string' ? q.questions[0] : q.content) || 'Question',
+              options: q.options || [],
+              correctAnswer: q.correctAnswer || q.correctAnswers?.["0"] || '',
+              points: 1,
+              part: 1,
+              instructions: q.instructions || '',
+              questionAudios: q.questionAudios || [],
+              passage: part1PassageHtml
+            }
+          }
+        })
+      : []
+
+    // passageContent already computed above
 
     // Create a mock test structure for the remedial test
     // This allows us to reuse the existing test infrastructure
@@ -102,18 +170,26 @@ export async function POST(request: NextRequest) {
               instructions: `Complete this ${remedialTest.type.replace(/_/g, ' ').toLowerCase()} practice test.`,
               audioUrl: remedialTest.audioUrl,
               order: 1,
+              passageContent: passageContent,
               questions: {
-                create: transformedQuestions.map((q, index) => ({
+                create: transformedQuestions.map((q: TransformedQuestion, index: number) => ({
                   order: index + 1,
-                  correctAnswerJson: q.correctAnswer,
+                  correctAnswerJson: q.type === 'MATCHING' ? JSON.stringify(q.correctAnswers ?? {}) : (q.correctAnswer ?? ''),
                   questionBank: {
                     create: {
                       type: q.type as any,
-                      contentJson: {
+                      contentJson: q.type === 'MATCHING' ? {
+                        passage: q.passage,
+                        headings: q.headings,
+                        instructions: q.instructions,
+                        correctAnswers: q.correctAnswers,
+                        content: 'Match the headings to the appropriate sections'
+                      } : {
                         content: q.content,
                         options: q.options,
                         instructions: q.instructions,
                         questionAudios: q.questionAudios,
+                        passage: part1PassageHtml,
                         correctAnswers: { "0": q.correctAnswer }
                       }
                     }
@@ -178,10 +254,10 @@ export async function POST(request: NextRequest) {
       module: remedialTest.module
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error starting remedial test session:', error)
     return NextResponse.json(
-      { error: 'Failed to start remedial test session', details: error.message },
+      { error: 'Failed to start remedial test session', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

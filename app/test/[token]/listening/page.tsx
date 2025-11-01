@@ -465,7 +465,7 @@ export default function ListeningPage({ params }: { params: Promise<{ token: str
                 <h3 className="font-bold text-gray-900 mb-4">Listening Instructions - Part {currentPart}</h3>
                 
                 {/* Part-specific content from listening data */}
-                {module.listeningData && (
+                {module && module.listeningData && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="font-bold text-green-900 mb-2">Part {currentPart} Content</h4>
                     <div className="text-sm text-green-800">

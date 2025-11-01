@@ -145,8 +145,8 @@ export default function EditMockTest() {
         }
         const data = await response.json()
         setMockData(data.mock)
-      } catch (err: any) {
-        setError(err.message)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         setLoading(false)
       }

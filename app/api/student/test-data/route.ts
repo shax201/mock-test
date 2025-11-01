@@ -47,9 +47,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the specific module with related data
-    const module = assignment.mock.modules.find(m => m.type === effectiveModuleType)
+    const testModule = assignment.mock.modules.find(m => m.type === effectiveModuleType)
     
-    if (!module) {
+    if (!testModule) {
       return NextResponse.json({ error: 'Module not found' }, { status: 404 })
     }
 
@@ -57,18 +57,18 @@ export async function GET(request: NextRequest) {
     let readingData = null
     let listeningData = null
 
-    if (module.type === 'READING') {
+    if (testModule.type === 'READING') {
       readingData = await prisma.readingModuleData.findUnique({
-        where: { moduleId: module.id }
+        where: { moduleId: testModule.id }
       })
-    } else if (module.type === 'LISTENING') {
+    } else if (testModule.type === 'LISTENING') {
       listeningData = await prisma.listeningModuleData.findUnique({
-        where: { moduleId: module.id }
+        where: { moduleId: testModule.id }
       })
     }
 
     // Transform questions for the frontend
-    const questions = module.questions
+    const questions = testModule.questions
       .filter(q => {
         // If explicitly requesting MATCHING_HEADINGS, only include matching-heading style questions
         if (requestedModuleType === 'MATCHING_HEADINGS') {
@@ -89,10 +89,25 @@ export async function GET(request: NextRequest) {
         ) {
           // Accept either explicit MATCHING_HEADINGS type or MATCHING with passage/headings
           if (content && content.passage && Array.isArray(content.headings)) {
+            // Normalize passage if it's a string into a minimal object structure
+            const normalizedPassage = typeof content.passage === 'string'
+              ? {
+                  title: content.passageTitle || '',
+                  sections: [
+                    {
+                      id: 'section-1',
+                      number: 1,
+                      content: content.passage,
+                      hasHeading: false
+                    }
+                  ]
+                }
+              : content.passage
+
             return {
               id: q.id,
               type: 'MATCHING_HEADINGS',
-              passage: content.passage || { title: '', sections: [] },
+              passage: normalizedPassage || { title: '', sections: [] },
               headings: content.headings || [],
               correctAnswers: content.correctAnswers || {},
               instructions: content.instructions || '',
@@ -139,14 +154,21 @@ export async function GET(request: NextRequest) {
         }
       })
 
+    // Derive passage content fallback if not present on module
+    const derivedPassageContent = testModule.passageContent || (readingData ? {
+      part1: readingData.part1Passage || '',
+      part2: readingData.part2Passage || '',
+      part3: readingData.part3Passage || ''
+    } : null)
+
     return NextResponse.json({
       module: {
-        id: module.id,
-        type: module.type,
-        duration: module.durationMinutes,
-        audioUrl: module.audioUrl,
-        instructions: module.instructions,
-        passageContent: module.passageContent,
+        id: testModule.id,
+        type: testModule.type,
+        duration: testModule.durationMinutes,
+        audioUrl: testModule.audioUrl,
+        instructions: testModule.instructions,
+        passageContent: derivedPassageContent,
         readingData: readingData,
         listeningData: listeningData
       },

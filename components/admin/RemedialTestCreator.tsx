@@ -11,6 +11,7 @@ import OptionsEditor from './remedial/OptionsEditor'
 import CorrectAnswerInput from './remedial/CorrectAnswerInput'
 import ReviewSummary from './remedial/ReviewSummary'
 import QuestionAudioListEditor from './remedial/QuestionAudioListEditor'
+import MatchingHeadingsEditor from './remedial/MatchingHeadingsEditor'
 import { PassageSection, QuestionData, RemedialTestData, MockTest } from './remedial/types'
 import QuestionCreationModal from './QuestionCreationModal'
 
@@ -26,8 +27,8 @@ export default function RemedialTestCreator() {
   const [testData, setTestData] = useState<RemedialTestData>({
     title: '',
     description: '',
-    type: 'MATCHING_HEADINGS',
-    module: 'READING',
+    type: 'MULTIPLE_CHOICE',
+    module: 'LISTENING',
     difficulty: 'INTERMEDIATE',
     duration: 20,
     audioUrl: '',
@@ -92,11 +93,11 @@ export default function RemedialTestCreator() {
     })
   }
 
-  const handleAudioChange = (file: File | null, url: string, publicId: string) => {
+  const handleAudioChange = (file: File | null, url?: string, publicId?: string) => {
     setTestData(prev => ({
       ...prev,
-      audioUrl: url,
-      audioPublicId: publicId
+      audioUrl: url || '',
+      audioPublicId: publicId || ''
     }))
   }
 
@@ -350,61 +351,109 @@ export default function RemedialTestCreator() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Question Content</h3>
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">Create questions using the modal.</div>
-                <button
-                  type="button"
-            onClick={() => setIsQuestionModalOpen(true)}
-            className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        
+        {/* Question Type Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Question Type
+          </label>
+          <select
+            value={testData.type}
+            onChange={(e) => handleBasicInfoChange('type', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            + Create via Modal
-                    </button>
-                  </div>
-                  
-        {/* Show created questions */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium text-gray-900">Created Questions</h4>
-            <span className="text-xs text-gray-500">{testData.questions.length} added</span>
-          </div>
-          {testData.questions.length === 0 ? (
-            <div className="text-sm text-gray-500">No questions added yet. Use the modal to add one.</div>
-          ) : (
-            <div className="space-y-3">
-              {testData.questions.map((q, qi) => (
-                <div key={`q-${qi}`} className="border border-gray-200 rounded-md p-3">
-                  {(q.questions || []).map((text, idx) => (
-                    <div key={`q-${qi}-i-${idx}`} className="flex items-center justify-between">
-                      <div className="text-sm text-gray-800">{qi + 1}. {text || 'Audio Question'}</div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                          {testData.type === 'MULTIPLE_CHOICE' ? 'Multiple Choice' : testData.type === 'TRUE_FALSE' ? 'True/False' : testData.type}
-                  </span>
-                        {q.questionAudios && q.questionAudios[idx] && q.questionAudios[idx].url ? (
-                          <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Audio attached</span>
-                        ) : null}
-                  <button
-                    type="button"
-                          className="text-xs text-blue-600 hover:text-blue-800"
-                          onClick={() => { setEditingIndex(qi); setIsQuestionModalOpen(true) }}
-                  >
-                          Edit
-                  </button>
+            <option value="MULTIPLE_CHOICE">Multiple Choice</option>
+            <option value="TRUE_FALSE">True/False</option>
+            <option value="MATCHING_HEADINGS">Matching Headings</option>
+          </select>
+        </div>
+
+        {/* Matching Headings Editor */}
+        {testData.type === 'MATCHING_HEADINGS' ? (
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Matching Headings Question</h4>
+              <p className="text-sm text-blue-800">
+                Create a passage with sections and provide headings for students to match. 
+                Some sections should have heading gaps where students will drag the correct heading.
+              </p>
+            </div>
+            
+            <MatchingHeadingsEditor
+              question={currentQuestion}
+              onQuestionChange={handleQuestionChange}
+            />
+            
+            <div className="flex justify-end">
               <button
                 type="button"
-                          className="text-xs text-red-600 hover:text-red-800"
-                          onClick={() => setTestData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== qi) }))}
-                        >
-                          Delete
-                  </button>
-                </div>
+                onClick={addQuestionToTest}
+                disabled={!currentQuestion.passage?.title || !currentQuestion.headings?.length || !currentQuestion.passage?.sections?.length}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Matching Headings Question
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">Create questions using the modal.</div>
+              <button
+                type="button"
+                onClick={() => setIsQuestionModalOpen(true)}
+                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                + Create via Modal
+              </button>
+            </div>
+                      
+            {/* Show created questions */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-900">Created Questions</h4>
+                <span className="text-xs text-gray-500">{testData.questions.length} added</span>
+              </div>
+              {testData.questions.length === 0 ? (
+                <div className="text-sm text-gray-500">No questions added yet. Use the modal to add one.</div>
+              ) : (
+                <div className="space-y-3">
+                  {testData.questions.map((q, qi) => (
+                    <div key={`q-${qi}`} className="border border-gray-200 rounded-md p-3">
+                      {(q.questions || []).map((text, idx) => (
+                        <div key={`q-${qi}-i-${idx}`} className="flex items-center justify-between">
+                          <div className="text-sm text-gray-800">{qi + 1}. {text || 'Audio Question'}</div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                              {testData.type === 'MULTIPLE_CHOICE' ? 'Multiple Choice' : testData.type === 'TRUE_FALSE' ? 'True/False' : testData.type}
+                            </span>
+                            {q.questionAudios && q.questionAudios[idx] && q.questionAudios[idx].url ? (
+                              <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Audio attached</span>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                              onClick={() => { setEditingIndex(qi); setIsQuestionModalOpen(true) }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:text-red-800"
+                              onClick={() => setTestData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== qi) }))}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
-              ))}
-              </div>
-            )}
-        </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -486,7 +535,7 @@ export default function RemedialTestCreator() {
       onClose={() => { setIsQuestionModalOpen(false); setEditingIndex(null) }}
       onSave={(qd) => { handleModalSave(qd); setIsQuestionModalOpen(false) }}
       part={1}
-      allowedTypes={[ 'MULTIPLE_CHOICE', 'TRUE_FALSE' ]}
+      allowedTypes={[ 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'MATCHING_HEADINGS' ]}
       enableAudioContent={true}
       initial={editingIndex !== null ? {
         type: testData.type,

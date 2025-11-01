@@ -11,7 +11,7 @@ interface RemedialTest {
   module: string
   difficulty: string
   duration: number
-  questions: any[]
+  questions: Record<string, any>[]
   attempted?: boolean
   mockTest?: {
     id: string
@@ -74,14 +74,14 @@ export default function RemedialTests() {
       if (response.ok) {
         const data = await response.json()
         // Navigate to the appropriate module based on the remedial test type
-        const module = data.module?.toLowerCase()
-        if (module === 'listening') {
+        const testModule = data.module?.toLowerCase()
+        if (testModule === 'listening') {
           router.push(`/test/${data.token}/listening`)
-        } else if (module === 'reading') {
+        } else if (testModule === 'reading') {
           router.push(`/test/${data.token}/reading`)
-        } else if (module === 'writing') {
+        } else if (testModule === 'writing') {
           router.push(`/test/${data.token}/writing`)
-        } else if (module === 'speaking') {
+        } else if (testModule === 'speaking') {
           router.push(`/test/${data.token}/speaking`)
         } else {
           // Fallback to the main test page

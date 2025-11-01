@@ -10,7 +10,7 @@ interface QuestionAudio {
 interface QuestionAudioListEditorProps {
   questions: string[]
   audios: QuestionAudio[]
-  onChange: (index: number, file: File | null, url: string, publicId: string) => void
+  onChange: (index: number, file: File | null, url?: string, publicId?: string) => void
   onDeleteUploaded?: (publicId: string) => Promise<void> | void
 }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+// import { useRouter } from 'next/navigation'
 
 interface RemedialTest {
   id: string
@@ -27,7 +27,7 @@ interface RemedialTest {
 }
 
 export default function AdminRemedialTests() {
-  const router = useRouter()
+  // const router = useRouter()
   const [remedialTests, setRemedialTests] = useState<RemedialTest[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)

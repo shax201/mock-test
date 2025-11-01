@@ -31,8 +31,7 @@ export default function RemedialTestEditor() {
     audioUrl: '',
     audioPublicId: '',
     mockTestId: '',
-    questions: [],
-    isActive: true
+    questions: []
   })
 
   // Removed currentQuestion state - using modal approach
@@ -79,8 +78,7 @@ export default function RemedialTestEditor() {
           audioUrl: test.audioUrl || '',
           audioPublicId: test.audioPublicId || '',
           mockTestId: test.mockTestId || '',
-          questions: test.questions || [],
-          isActive: test.isActive !== undefined ? test.isActive : true
+          questions: test.questions || []
         })
       } else {
         console.error('Failed to fetch remedial test')
@@ -117,11 +115,11 @@ export default function RemedialTestEditor() {
     })
   }
 
-  const handleAudioChange = (file: File | null, url: string, publicId: string) => {
+  const handleAudioChange = (file: File | null, url?: string, publicId?: string) => {
     setTestData(prev => ({
       ...prev,
-      audioUrl: url,
-      audioPublicId: publicId
+      audioUrl: url || '',
+      audioPublicId: publicId || ''
     }))
   }
 

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if submission already exists
-    let submission = await prisma.submission.findFirst({
+    const submission = await prisma.submission.findFirst({
       where: {
         assignmentId: assignment.id,
         moduleId: listeningModule.id

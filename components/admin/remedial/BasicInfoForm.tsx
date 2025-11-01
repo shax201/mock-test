@@ -7,7 +7,7 @@ interface BasicInfoFormProps {
   testData: RemedialTestData
   mockTests: MockTest[]
   onChange: (field: string, value: string | number) => void
-  onAudioChange: (file: File | null, url: string, publicId: string) => void
+  onAudioChange: (file: File | null, url?: string, publicId?: string) => void
 }
 
 export default function BasicInfoForm({ testData, mockTests, onChange, onAudioChange }: BasicInfoFormProps) {

@@ -62,9 +62,9 @@ export default function MatchingHeadingsPage({ params }: { params: Promise<{ tok
         // First check if the module is already completed
         const modulesResponse = await fetch(`/api/student/test-modules?token=${encodeURIComponent(resolvedParams.token)}`)
         if (modulesResponse.ok) {
-          const modulesData = await modulesResponse.json()
-          // matching headings rides on READING module type for storage
-          const matchingModule = modulesData.modules.find((m: any) => m.type === 'READING')
+        const modulesData = await modulesResponse.json()
+        // matching headings rides on READING module type for storage
+        const matchingModule = modulesData.modules.find((m: Record<string, any>) => m.type === 'READING')
           
           if (matchingModule && matchingModule.isCompleted) {
             // Module is already completed, redirect to results

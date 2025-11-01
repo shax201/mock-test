@@ -66,6 +66,31 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Fetch all active remedial tests with LISTENING module
+    const remedialTests = await prisma.remedialTestTemplate.findMany({
+      where: {
+        module: 'LISTENING',
+        isActive: true
+      },
+      include: {
+        sessions: currentUserId ? {
+          where: {
+            studentId: currentUserId,
+            completedAt: {
+              not: null
+            }
+          },
+          orderBy: {
+            completedAt: 'desc'
+          },
+          take: 1
+        } : []
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
     // Transform the data to match the expected format
     const transformedMockTests = mockTests.map(mock => {
       const listeningModule = mock.modules[0] // Get the listening module
@@ -97,13 +122,51 @@ export async function GET(request: NextRequest) {
         audioUrl: listeningModule?.audioUrl,
         instructions: listeningModule?.instructions,
         moduleId: listeningModule?.id,
-        completionInfo: completionInfo
+        completionInfo: completionInfo,
+        isRemedial: false
       }
     })
 
+    // Transform remedial tests to match the same format
+    const transformedRemedialTests = remedialTests.map(template => {
+      let status = 'AVAILABLE'
+      let completionInfo = null
+
+      // Check if user has completed this remedial test
+      if (currentUserId && template.sessions && template.sessions.length > 0) {
+        const session = template.sessions[0]
+        if (session.completedAt) {
+          status = 'COMPLETED'
+          completionInfo = {
+            completedAt: session.completedAt,
+            autoScore: session.score || undefined
+          }
+        }
+      }
+
+      return {
+        id: template.id,
+        title: template.title,
+        description: template.description || 'Remedial Listening Test',
+        duration: template.duration,
+        status: status,
+        createdAt: template.createdAt,
+        audioUrl: template.audioUrl || null,
+        instructions: null,
+        moduleId: null,
+        completionInfo: completionInfo,
+        isRemedial: true,
+        remedialType: template.type,
+        difficulty: template.difficulty
+      }
+    })
+
+    // Combine both lists, with remedial tests first
+    const allTests = [...transformedRemedialTests, ...transformedMockTests]
+
     return NextResponse.json({
       success: true,
-      mockTests: transformedMockTests
+      mockTests: allTests
     })
   } catch (error) {
     console.error('Error fetching listening tests:', error)
